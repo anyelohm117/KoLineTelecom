@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro - KoLine Telecom</title>
+<!-- Carga de Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    'koline-primary': '#00eaff', // Cian brillante
+                    'koline-dark': '#0a1d37', // Azul oscuro casi negro
+                },
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
+                boxShadow: {
+                    'neon': '0 0 15px rgba(0, 234, 255, 0.7)',
+                    'neon-lg': '0 0 30px rgba(0, 234, 255, 0.9)',
+                },
+                animation: {
+                    'pulse-slow': 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate',
+                    'spin-slow': 'spin 60s linear infinite',
+                }
+            }
+        }
+    }
+</script>
+
+<style>
+/* Estilo para el fondo (simulación de red/datos) */
+.bg-network-pattern {
+    background-image: radial-gradient(circle, rgba(0, 234, 255, 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.2;
+}
+/* Estilo para el SELECT nativo */
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+</style>
+
+</head>
+
+<body class="bg-koline-dark text-white min-h-screen flex justify-center items-center p-4 relative overflow-hidden font-sans">
+
+<!-- FONDO ANIMADO NEON/DATOS -->
+<div class="absolute inset-0 bg-network-pattern"></div>
+<div class="absolute w-96 h-96 bg-koline-primary rounded-full blur-[100px] opacity-20 animate-pulse-slow top-1/4 left-1/4"></div>
+<div class="absolute w-72 h-72 bg-blue-500 rounded-full blur-[120px] opacity-15 animate-spin-slow bottom-1/4 right-1/4"></div>
+
+
+<!-- CONTENEDOR PRINCIPAL - Estilo Glassmorphism -->
+<div class="w-full max-w-md bg-white/5 backdrop-blur-lg border border-koline-primary/30 rounded-2xl p-8 shadow-neon-lg z-10 transition-all duration-300 hover:shadow-neon-lg/90">
+
+    <!-- LOGO Y TÍTULO -->
+    <div class="text-center mb-8">
+        <!-- SVG Icono de Fibra Óptica/Red (Inline SVG) -->
+        <svg class="w-12 h-12 mx-auto mb-2 text-koline-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9h-3M6 12a3 3 0 11-6 0 3 3 0 016 0zM12 21V3"/>
+        </svg>
+
+        <h1 class="text-3xl font-bold text-koline-primary tracking-wider shadow-neon/50">KoLine Telecom</h1>
+        <p class="text-sm text-gray-400 mt-1">Regístrate para conectar con la velocidad del futuro.</p>
+    </div>
+
+    <form action="conexion.php" method="POST" class="space-y-4">
+
+        <!-- INPUTS DE TEXTO -->
+        <input type="text" name="usuario" placeholder="Nombre de usuario" required
+            class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 placeholder-gray-400 text-white"
+        >
+        <input type="password" name="clave" placeholder="Contraseña" required
+            class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 placeholder-gray-400 text-white"
+        >
+        <input type="text" name="nombre" placeholder="Nombre(s)" required
+            class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 placeholder-gray-400 text-white"
+        >
+        <input type="text" name="apellido_paterno" placeholder="Apellido paterno" required
+            class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 placeholder-gray-400 text-white"
+        >
+        <input type="text" name="apellido_materno" placeholder="Apellido materno" required
+            class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 placeholder-gray-400 text-white"
+        >
+        <input type="email" name="correo" placeholder="Correo electrónico" required
+            class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 placeholder-gray-400 text-white"
+        >
+
+        <!-- SELECT DE ROL (Contenedor personalizado) -->
+        <div class="relative">
+            <select name="rol" required
+                class="w-full p-3 rounded-xl bg-koline-dark/50 border border-gray-600 text-white focus:border-koline-primary focus:ring-1 focus:ring-koline-primary transition duration-200 cursor-pointer"
+            >
+                <option value="" disabled selected class="bg-koline-dark text-gray-400">Seleccionar rol</option>
+                <option value="Administrador" class="bg-koline-dark">Administrador</option>
+                <option value="Cliente" class="bg-koline-dark">Cliente</option>
+                <option value="Soporte" class="bg-koline-dark">Soporte</option>
+                <option value="Invitado" class="bg-koline-dark">Invitado</option>
+            </select>
+            <!-- Icono de flecha para el select -->
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg class="w-5 h-5 text-koline-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+        </div>
+
+        <!-- BOTÓN DE REGISTRO CON EFECTO NEON -->
+        <button type="submit"
+            class="w-full p-3 mt-6 font-semibold rounded-xl bg-koline-primary text-koline-dark shadow-neon hover:shadow-neon-lg hover:bg-opacity-90 transition duration-300 transform hover:scale-[1.01]"
+        >
+            Registrar cuenta
+        </button>
+    </form>
+
+    <!-- ENLACE DE INICIO DE SESIÓN -->
+    <p class="text-sm text-center text-gray-400 mt-6">
+        ¿Ya tienes cuenta?
+        <a href="login.html" class="font-medium text-koline-primary hover:text-koline-primary/80 transition duration-200 hover:shadow-neon/50">
+            Inicia sesión aquí
+        </a>
+    </p>
+</div>
+</body>
+</html>
