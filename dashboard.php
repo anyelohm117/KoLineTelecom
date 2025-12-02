@@ -1,383 +1,322 @@
-<?php
-// 1. INICIAR LA SESIÓN
-session_start();
-
-// 2. INCLUIR EL ARCHIVO DE CONEXIÓN
-// (Asegúrate de tener 'db_con.php' en la misma carpeta)
-require 'db_con.php'; 
-
-// 3. OBTENER LOS DATOS QUE EL DASHBOARD NECESITA
-// (Iniciamos las variables para que existan siempre)
-$total = 0;
-$active = 0;
-$departments = [];
-$latest = [];
-
-// (Opcional) Poner un valor por si no se ha iniciado sesión
-if (!isset($_SESSION['usuario'])) {
-    $_SESSION['usuario'] = 'Admin'; // Un valor de ejemplo
-}
-
-try {
-    // --- Para el Card "Total empleados" ---
-    $sql_total = "SELECT COUNT(*) FROM empleados";
-    $result_total = $conn->query($sql_total);
-    if ($result_total) $total = $result_total->fetch_row()[0]; 
-
-    // --- Para el Card "Activos" ---
-    $sql_active = "SELECT COUNT(*) FROM empleados WHERE activo = 1";
-    $result_active = $conn->query($sql_active);
-    if ($result_active) $active = $result_active->fetch_row()[0];
-
-    // --- Para el Card "Departamentos" ---
-    $sql_deps = "SELECT DISTINCT departamento FROM empleados WHERE departamento IS NOT NULL AND departamento != ''";
-    $result_deps = $conn->query($sql_deps);
-    if ($result_deps) $departments = $result_deps->fetch_all(MYSQLI_ASSOC); 
-
-    // --- Para la Tabla "Últimos 5 empleados" ---
-    $sql_latest = "SELECT * FROM empleados ORDER BY fecha_ingreso DESC LIMIT 5";
-    $result_latest = $conn->query($sql_latest);
-    if ($result_latest) $latest = $result_latest->fetch_all(MYSQLI_ASSOC);
-
-
-} catch (Exception $e) {
-    // Si hay un error, se mostrará en la página
-    die("Error al consultar los datos: " . $e->getMessage() . " (Verifica que la tabla 'empleados' existe y 'db_con.php' es correcto)");
-}
-
-// 4. CERRAMOS LA CONEXIÓN
-$conn->close();
-
-?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Dashboard - KoLine Telecom</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg1:#001f3f;
-    --bg2:#0078ff;
-    --accent:#00c6ff;
-    --glass: rgba(255,255,255,0.06);
-    --card-shadow: 0 8px 30px rgba(0,0,0,0.45);
-  }
-  *{box-sizing:border-box}
-  body{
-    font-family:'Poppins',sans-serif;
-    margin:0;
-    min-height:100vh;
-    background: linear-gradient(135deg,var(--bg1), #004ea8 40%, var(--bg2));
-    color:#eaf6ff;
-    -webkit-font-smoothing:antialiased;
-  }
-  .wrap{
-    width:96%;             /* <- CORREGIDO */
-    max-width:1100px;      /* <- CORREGIDO */
-    margin:36px auto;
-    display:grid;
-    grid-template-columns: 260px 1fr;
-    gap:22px;
-    align-items:start;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | KoLine Telecom</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  /* SIDEBAR */
-  .sidebar{
-    background:var(--glass);
-    padding:22px;
-    border-radius:14px;
-    box-shadow:var(--card-shadow);
-    border:1px solid rgba(255,255,255,0.06);
-    height: calc(100vh - 72px);
-    position:sticky;
-    top:36px;
-  }
-  .brand{ font-size:20px; font-weight:700; color:var(--accent); text-shadow:0 0 10px rgba(0,198,255,0.12) }
-  .small{font-size:13px;color:#cfefff; opacity:0.9;margin-top:6px}
-  nav{margin-top:22px}
-  nav a{display:block;padding:10px;border-radius:8px;color:#dff6ff;text-decoration:none;margin-bottom:8px}
-  nav a.active, nav a:hover{background:linear-gradient(90deg, rgba(0,120,255,0.12), rgba(0,198,255,0.08));box-shadow:0 4px 12px rgba(0,198,255,0.06)}
-
-  /* MAIN */
-  .main{
-    min-height:600px;
-  }
-  .topbar{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:18px;
-  }
-  .search{
-    display:flex;
-    gap:12px;
-    align-items:center;
-  }
-  .search input{
-    padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.03); color:#eaf6ff; width:360px; outline:none;
-  }
-
-  .cards{
-    display:flex; gap:14px; margin-bottom:18px;
-  }
-  .card{
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    padding:18px;
-    border-radius:12px;
-    box-shadow:var(--card-shadow);
-    border:1px solid rgba(255,255,255,0.045);
-    flex:1;
-  }
-  .card h3{margin:0;font-size:18px;color:var(--accent)}
-  .card p{margin:6px 0 0;font-size:28px;font-weight:700;color:#fff}
-
-  /* table */
-  .panel{
-    background:var(--glass);
-    padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.05); box-shadow:var(--card-shadow);
-    overflow-x: auto; /* <- AÑADIDO */
-  }
-  table{
-    width:100%; border-collapse:collapse; color:#eaffff;
-  }
-  thead th{
-    text-align:left; font-size:13px; padding:10px 8px; color:#cfefff; font-weight:600;
-    border-bottom:1px solid rgba(255,255,255,0.04)
-  }
-  tbody td{ 
-    padding:12px 8px; 
-    border-bottom:1px dashed rgba(255,255,255,0.03); 
-    font-size:14px;
-    white-space: nowrap; /* <- AÑADIDO */
-  }
-  .badge { padding:6px 10px;border-radius:999px;font-weight:600; font-size:13px; display:inline-block }
-  .badge.act { background:linear-gradient(90deg,#00eaff,#0078ff); color:#003046 }
-  .badge.off { background:rgba(255,255,255,0.06); color:#d8f3ff }
-
-  /* botones */
-  .btn{
-    background:linear-gradient(90deg,#0078ff,#00c6ff);
-    border:none;padding:10px 14px;border-radius:10px;color:#fff;font-weight:600;cursor:pointer;
-    box-shadow:0 6px 18px rgba(0,198,255,0.12)
-  }
-  .btn.ghost{ background:transparent;border:1px solid rgba(255,255,255,0.06) }
-
-  /* modal simple */
-  .modal{
-    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-    background:rgba(0,0,0,0.5); z-index:60;
-  }
-  .modal .cardbox{
-    width:520px; max-width:94%; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-    padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);
-  }
-
-  /* --- INICIO ESTILOS FORMULARIO MODAL (AÑADIDO) --- */
-  .modal input {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.03);
-    color: #eaf6ff;
-    outline: none;
-    font-family: 'Poppins', sans-serif;
-    font-size: 14px;
-    box-sizing: border-box; /* Importante */
-  }
-  .modal input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-  }
-  /* --- FIN ESTILOS FORMULARIO MODAL --- */
-
-  .form-row{
-    display:flex; 
-    gap:10px;
-    margin-bottom: 12px; /* <- AÑADIDO */
-  }
-  .form-row .col{flex:1}
-
-  footer{margin-top:18px;color:#bfefff;font-size:13px;opacity:0.9}
-
-  @media(max-width:900px){
-    .wrap{grid-template-columns:1fr; padding:12px}
-    .sidebar{position:static;height:auto}
-    .search input{width:180px}
-  }
-</style>
+    <style>
+        /* Personalización para el toque "Neon" de KoLine */
+        .neon-text {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.7);
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
 </head>
-<body>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased">
 
-<div class="wrap">
-  <aside class="sidebar">
-    <div class="brand">KoLine Telecom</div>
-    <div class="small">Dashboard de empleados</div>
+    <div class="flex h-screen overflow-hidden">
 
-    <nav>
-      <a href="#" class="active">Empleados</a>
-      <a href="#">Departamentos</a>
-      <a href="#">Reportes</a>
-      <a href="#">Ajustes</a>
-      <a href="login.php" style="margin-top:12px;color:#ffccd5">Cerrar sesión</a>
-    </nav>
+        <aside class="w-64 bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300">
+            <div class="h-16 flex items-center justify-center border-b border-slate-800">
+                <i class="fa-solid fa-wifi text-cyan-400 text-2xl mr-2"></i>
+                <h1 class="text-xl font-bold tracking-wider">KoLine <span class="text-cyan-400 neon-text">Telecom</span></h1>
+            </div>
 
-    <footer>
-      Usuario: <strong><?php echo htmlspecialchars($_SESSION['usuario']); ?></strong>
-      <div style="margin-top:10px">Total empleados: <strong><?php echo $total; ?></strong></div>
-    </footer>
-  </aside>
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-2 px-4">
+                    <li>
+                        <a href="#" class="flex items-center p-3 text-cyan-400 bg-slate-900 rounded-lg border border-slate-800 shadow-md">
+                            <i class="fa-solid fa-gauge-high w-6"></i>
+                            <span class="font-medium">Dashboard</span>
+                        </a>
+                    </li>
+                    
+                    <p class="text-xs text-slate-500 uppercase font-semibold mt-4 mb-2 pl-2">Gestión</p>
+                    <li>
+                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
+                            <i class="fa-solid fa-users w-6"></i>
+                            <span>Clientes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
+                            <i class="fa-solid fa-file-invoice-dollar w-6"></i>
+                            <span>Facturación</span>
+                        </a>
+                    </li>
 
-  <main class="main">
-    <div class="topbar">
-      <div>
-        <h1 style="margin:0;font-size:20px">Empleados</h1>
-        <div style="font-size:13px; color:#cfefff; opacity:0.9">Visión general y gestión</div>
-      </div>
-      <div class="search">
-        <input id="search" placeholder="Buscar por nombre, email o puesto..." />
-        <button class="btn" id="openAdd">+ Nuevo empleado</button>
-      </div>
+                    <p class="text-xs text-slate-500 uppercase font-semibold mt-4 mb-2 pl-2">Técnico</p>
+                    <li>
+                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
+                            <i class="fa-solid fa-headset w-6"></i>
+                            <span>Soporte / Tickets</span>
+                            <span class="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">3</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
+                            <i class="fa-solid fa-boxes-stacked w-6"></i>
+                            <span>Almacén</span>
+                        </a>
+                    </li>
+
+                    <p class="text-xs text-slate-500 uppercase font-semibold mt-4 mb-2 pl-2">Sistema</p>
+                    <li>
+                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
+                            <i class="fa-solid fa-users-gear w-6"></i>
+                            <span>Empleados</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="p-4 border-t border-slate-800">
+                <div class="flex items-center gap-3">
+                    <img class="h-10 w-10 rounded-full border-2 border-cyan-500" src="https://ui-avatars.com/api/?name=Admin+User&background=06b6d4&color=fff" alt="">
+                    <div>
+                        <p class="text-sm font-medium text-white">Administrador</p>
+                        <p class="text-xs text-slate-500">admin@koline.com</p>
+                    </div>
+                    <button class="ml-auto text-slate-400 hover:text-red-400"><i class="fa-solid fa-right-from-bracket"></i></button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-900 p-8">
+            
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-white">Resumen General</h2>
+                    <p class="text-slate-400">Bienvenido al panel de control de KoLine Telecom</p>
+                </div>
+                <div class="flex gap-4">
+                    <button class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg shadow-lg shadow-cyan-500/20 transition">
+                        <i class="fa-solid fa-plus mr-2"></i> Nuevo Cliente
+                    </button>
+                    <button class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-700 transition">
+                        <i class="fa-solid fa-filter mr-2"></i> Filtrar
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-emerald-500 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium uppercase">Ingresos (Hoy)</p>
+                            <h3 class="text-2xl font-bold text-white mt-1">$ 12,450.00</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-500/10 rounded-lg text-emerald-500">
+                            <i class="fa-solid fa-money-bill-wave text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-emerald-400 text-xs mt-4 flex items-center">
+                        <i class="fa-solid fa-arrow-up mr-1"></i> +15% vs ayer
+                    </p>
+                </div>
+
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-cyan-500 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium uppercase">Clientes Activos</p>
+                            <h3 class="text-2xl font-bold text-white mt-1">842</h3>
+                        </div>
+                        <div class="p-3 bg-cyan-500/10 rounded-lg text-cyan-500">
+                            <i class="fa-solid fa-users text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-cyan-400 text-xs mt-4 flex items-center">
+                        <i class="fa-solid fa-wifi mr-1"></i> 5 instalaciones hoy
+                    </p>
+                </div>
+
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-orange-500 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium uppercase">Tickets Soporte</p>
+                            <h3 class="text-2xl font-bold text-white mt-1">12</h3>
+                        </div>
+                        <div class="p-3 bg-orange-500/10 rounded-lg text-orange-500">
+                            <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-orange-400 text-xs mt-4 flex items-center">
+                        <i class="fa-regular fa-clock mr-1"></i> 2 urgentes
+                    </p>
+                </div>
+
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-purple-500 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium uppercase">Stock Routers</p>
+                            <h3 class="text-2xl font-bold text-white mt-1">45</h3>
+                        </div>
+                        <div class="p-3 bg-purple-500/10 rounded-lg text-purple-500">
+                            <i class="fa-solid fa-box-open text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-red-400 text-xs mt-4 flex items-center">
+                        <i class="fa-solid fa-circle-exclamation mr-1"></i> Stock bajo en ONUs
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <div class="lg:col-span-2 glass-panel p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Ingresos vs Gastos (Últimos 6 Meses)</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Pagos Recientes</h3>
+                    <div class="overflow-y-auto h-64 pr-2">
+                        <div class="flex items-center justify-between p-3 mb-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-green-900/50 flex items-center justify-center text-green-400">
+                                    <i class="fa-solid fa-money-bill"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-white">Juan Pérez</p>
+                                    <p class="text-xs text-slate-400">Hace 10 min</p>
+                                </div>
+                            </div>
+                            <span class="text-emerald-400 font-bold text-sm">+$450.00</span>
+                        </div>
+                         <div class="flex items-center justify-between p-3 mb-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center text-blue-400">
+                                    <i class="fa-solid fa-credit-card"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-white">Maria Lopez</p>
+                                    <p class="text-xs text-slate-400">Hace 35 min</p>
+                                </div>
+                            </div>
+                            <span class="text-emerald-400 font-bold text-sm">+$600.00</span>
+                        </div>
+                         <div class="flex items-center justify-between p-3 mb-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-green-900/50 flex items-center justify-center text-green-400">
+                                    <i class="fa-solid fa-money-bill"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-white">Carlos Ruiz</p>
+                                    <p class="text-xs text-slate-400">Hace 1 hora</p>
+                                </div>
+                            </div>
+                            <span class="text-emerald-400 font-bold text-sm">+$450.00</span>
+                        </div>
+                    </div>
+                    <button class="w-full mt-4 py-2 text-sm text-cyan-400 border border-cyan-900 rounded-lg hover:bg-cyan-900/20 transition">
+                        Ver todos los movimientos
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-8 glass-panel rounded-xl overflow-hidden">
+                <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-white">Soporte Técnico - Pendientes</h3>
+                    <span class="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full font-bold">Atención Requerida</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-400">
+                        <thead class="bg-slate-800 text-slate-200 uppercase text-xs">
+                            <tr>
+                                <th class="px-6 py-3">ID Ticket</th>
+                                <th class="px-6 py-3">Cliente</th>
+                                <th class="px-6 py-3">Asunto</th>
+                                <th class="px-6 py-3">Prioridad</th>
+                                <th class="px-6 py-3">Estado</th>
+                                <th class="px-6 py-3">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            <tr class="hover:bg-slate-800/50 transition">
+                                <td class="px-6 py-4 font-medium text-white">#TK-802</td>
+                                <td class="px-6 py-4">Roberto Gómez</td>
+                                <td class="px-6 py-4">Sin conexión - Luz roja en router</td>
+                                <td class="px-6 py-4"><span class="px-2 py-1 bg-red-500/10 text-red-500 rounded text-xs font-bold">Alta</span></td>
+                                <td class="px-6 py-4 text-orange-400">Abierto</td>
+                                <td class="px-6 py-4">
+                                    <button class="text-cyan-400 hover:text-cyan-300">Ver</button>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-slate-800/50 transition">
+                                <td class="px-6 py-4 font-medium text-white">#TK-801</td>
+                                <td class="px-6 py-4">Ana Martínez</td>
+                                <td class="px-6 py-4">Cambio de contraseña Wifi</td>
+                                <td class="px-6 py-4"><span class="px-2 py-1 bg-blue-500/10 text-blue-500 rounded text-xs font-bold">Baja</span></td>
+                                <td class="px-6 py-4 text-yellow-400">En Proceso</td>
+                                <td class="px-6 py-4">
+                                    <button class="text-cyan-400 hover:text-cyan-300">Ver</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
     </div>
 
-    <div class="cards">
-      <div class="card">
-        <h3>Total empleados</h3>
-        <p><?php echo $total; ?></p>
-      </div>
-      <div class="card">
-        <h3>Activos</h3>
-        <p><?php echo $active; ?></p>
-      </div>
-      <div class="card">
-        <h3>Departamentos</h3>
-        <p style="font-size:15px;margin-top:6px">
-          <?php
-            // Esta línea ahora funcionará porque $departments existe
-            $dlist = array_column($departments, 'departamento');
-            echo htmlspecialchars(implode(", ", array_filter($dlist)));
-          ?>
-        </p>
-      </div>
-    </div>
-
-    <div class="panel">
-      <table id="empTable">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>Puesto</th>
-            <th>Departamento</th>
-            <th>Ingreso</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php 
-          // Este bucle ahora funcionará porque $latest existe
-          if (!empty($latest)): 
-              foreach($latest as $e): 
-          ?>
-            <tr>
-              <td><?php echo htmlspecialchars($e['nombre'].' '.$e['apellido_paterno'].' '.$e['apellido_materno']); ?></td>
-              <td><?php echo htmlspecialchars($e['email']); ?></td>
-              <td><?php echo htmlspecialchars($e['puesto']); ?></td>
-              <td><?php echo htmlspecialchars($e['departamento'] ?? '-'); ?></td>
-              <td><?php echo htmlspecialchars($e['fecha_ingreso']); ?></td>
-              <td><?php echo $e['activo'] ? '<span class="badge act">Activo</span>' : '<span class="badge off">Inactivo</span>'; ?></td>
-            </tr>
-          <?php 
-              endforeach;
-          else:
-          ?>
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 20px;">No se encontraron empleados.</td>
-            </tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px">
-        <div style="color:#cfefff; font-size:13px">Mostrando últimos 5 empleados</div>
-        <div>
-          <button class="btn ghost" id="exportBtn">Exportar CSV</button>
-        </div>
-      </div>
-    </div>
-
-  </main>
-</div>
-
-<div class="modal" id="modal">
-  <div class="cardbox">
-    <h3 style="margin:0 0 10px 0; color:var(--accent)">Agregar nuevo empleado</h3>
-    <form id="addForm">
-      <div class="form-row">
-        <div class="col"><input name="nombre" placeholder="Nombre" required></div>
-        <div class="col"><input name="apellido_paterno" placeholder="Apellido paterno" required></div>
-      </div>
-      <div class="form-row">
-        <div class="col"><input name="apellido_materno" placeholder="Apellido materno"></div>
-        <div class="col"><input name="email" type="email" placeholder="Correo" required></div>
-      </div>
-      <div class="form-row" style="margin-top:8px"> 
-        <div class="col"><input name="puesto" placeholder="Puesto" required></div>
-        <div class="col"><input name="departamento" placeholder="Departamento"></div>
-      </div>
-
-      <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end">
-        <button type="button" class="btn ghost" id="closeModal">Cancelar</button>
-        <button type="submit" class="btn">Guardar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script>
-  // Abrir modal
-  const modal = document.getElementById('modal');
-  document.getElementById('openAdd').addEventListener('click', ()=> modal.style.display='flex');
-  document.getElementById('closeModal').addEventListener('click', ()=> modal.style.display='none');
-  window.addEventListener('click', (e)=> { if(e.target===modal) modal.style.display='none' });
-
-  // Buscar (cliente)
-  const search = document.getElementById('search');
-  search.addEventListener('input', ()=> {
-    const q = search.value.toLowerCase();
-    const rows = document.querySelectorAll('#empTable tbody tr');
-    rows.forEach(r=>{
-      const text = r.innerText.toLowerCase();
-      r.style.display = text.includes(q) ? '' : 'none';
-    })
-  });
-
-  // Exportar CSV simple
-  document.getElementById('exportBtn').addEventListener('click', ()=>{
-    const rows = Array.from(document.querySelectorAll('#empTable tr')).map(tr=> Array.from(tr.querySelectorAll('th,td')).map(td=>td.innerText.replace(/\n/g,' ').trim()));
-    const csv = rows.map(r=> r.map(cell => `"${cell.replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'empleados.csv'; a.click(); URL.revokeObjectURL(url);
-  });
-
-  // Enviar form agregar (AJAX fetch)
-  document.getElementById('addForm').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    // Asegúrate de crear este archivo 'add_employee.php'
-    const res = await fetch('add_employee.php', { method:'POST', body: fd });
-    const txt = await res.text();
-    if (res.ok) {
-      alert('Empleado creado correctamente.');
-      location.reload();
-    } else {
-      alert('Error: '+txt);
-    }
-  });
-</script>
-
+    <script>
+        const ctx = document.getElementById('financeChart').getContext('2d');
+        const financeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Ingresos',
+                    data: [12000, 19000, 3000, 5000, 20000, 30000],
+                    borderColor: '#06b6d4', // Cyan
+                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Gastos',
+                    data: [8000, 10000, 2500, 4000, 12000, 15000],
+                    borderColor: '#ef4444', // Red
+                    backgroundColor: 'rgba(239, 68, 68, 0)',
+                    tension: 0.4,
+                    borderDash: [5, 5]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#94a3b8' }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' }
+                    },
+                    x: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>
