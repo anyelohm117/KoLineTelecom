@@ -13,6 +13,7 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
 /* ============================================
    📌 CONSULTAS PARA DASHBOARD
 ============================================ */
+// (Misma lógica de PHP que tu código original)
 $total_usuarios = 0;
 $total_clientes = 0;
 $total_tickets_abiertos = 0;
@@ -20,23 +21,18 @@ $ultimos_usuarios = [];
 $ultimos_tickets = [];
 
 try {
-    // Total de usuarios
     $res = $conn->query("SELECT COUNT(*) FROM usuarios");
     $total_usuarios = $res->fetch_row()[0];
 
-    // Total clientes activos (Rol = 2)
     $res = $conn->query("SELECT COUNT(*) FROM usuarios WHERE id_rol = 2 AND activo = 1");
     $total_clientes = $res->fetch_row()[0];
 
-    // Tickets abiertos
     $res = $conn->query("SELECT COUNT(*) FROM tickets WHERE estado = 'Abierto'");
     $total_tickets_abiertos = $res->fetch_row()[0];
 
-    // Últimos usuarios registrados
     $sql = "SELECT u.*, r.nombre_rol FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol ORDER BY fecha_registro DESC LIMIT 5";
     $ultimos_usuarios = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
 
-    // Últimos tickets
     $sql = "SELECT t.*, u.nombres, u.apellido_paterno FROM tickets t JOIN clientes c ON t.id_cliente = c.id_cliente JOIN usuarios u ON c.id_usuario = u.id_usuario ORDER BY fecha_creacion DESC LIMIT 5";
     $ultimos_tickets = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
 
@@ -50,414 +46,369 @@ try {
 <meta charset="utf-8">
 <title>Dashboard KoLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <style>
 /* =========================================
-   🎨 PALETA DE COLORES (Clean & Professional)
+   🎨 PALETA DE COLORES (Basada en la Imagen)
    ========================================= */
 :root {
-    --bg-body: #f3f4f6;       /* Gris muy claro de fondo */
-    --bg-card: #ffffff;       /* Blanco puro para tarjetas */
-    --sidebar-bg: #ffffff;
+    /* Fondo profundo (Deep Space Blue) */
+    --bg-dark: #020c1b; 
+    --bg-glow: #0a1f35;
     
-    --primary: #2563eb;       /* Azul Rey (Profesional) */
-    --primary-hover: #1d4ed8;
+    /* El Cyan Neón exacto de la imagen */
+    --accent: #00eaff;
+    --accent-hover: #00cce6;
     
-    --text-dark: #111827;     /* Negro suave */
-    --text-gray: #6b7280;     /* Gris para textos secundarios */
+    /* Efecto Cristal Oscuro */
+    --glass-bg: rgba(13, 25, 40, 0.7); 
+    --glass-border: rgba(0, 234, 255, 0.15); /* Borde sutil cyan */
     
-    --border-color: #e5e7eb;  /* Bordes sutiles */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    /* Textos */
+    --text-main: #ffffff;
+    --text-muted: #8899a6;
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--bg-body);
+    font-family: 'Poppins', sans-serif;
+    /* Degradado Radial para imitar la iluminación de la imagen */
+    background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%);
+    background-color: var(--bg-dark);
+    background-attachment: fixed; /* Mantiene el fondo fijo al hacer scroll */
     margin: 0;
-    color: var(--text-dark);
+    color: var(--text-main);
     min-height: 100vh;
 }
 
-.layout {
-    display: flex;
-    min-height: 100vh;
+.wrap {
+    max-width: 1200px;
+    margin: 40px auto;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 30px;
+    padding: 20px;
 }
 
-/* ================= SIDEBAR (Lateral) ================= */
+/* ========== SIDEBAR ========== */
 .sidebar {
-    width: 260px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border-color);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    position: fixed; /* Fijo a la izquierda */
-    height: 100%;
-    overflow-y: auto;
-    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px); /* Efecto difuminado detrás del cristal */
+    -webkit-backdrop-filter: blur(12px);
+    padding: 30px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    height: fit-content;
 }
 
-/* PERFIL DE USUARIO (Estilo Menú Desplegable) */
-.user-profile {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border-radius: 12px;
-    background: #f9fafb;
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-bottom: 24px; /* Separación del menú */
+.sidebar img {
+    width: 140px;
+    display: block;
+    margin: 0 auto 30px auto;
+    /* Un pequeño brillo al logo */
+    filter: drop-shadow(0 0 5px rgba(0,234,255,0.3));
 }
 
-.user-profile:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
+/* ICONO DEL USUARIO */
+.user-box {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.user-avatar {
-    width: 40px;
-    height: 40px;
-    background: var(--primary);
-    color: white;
+.user-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 15px auto;
+    background: rgba(0, 234, 255, 0.05);
+    border: 2px solid var(--accent);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: 16px;
-}
-
-.user-details {
-    display: flex;
-    flex-direction: column;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--accent);
+    /* Efecto Glow del neón */
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.2); 
 }
 
 .user-name {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
-    color: var(--text-dark);
+    color: var(--text-main);
+    margin: 0;
 }
 
 .user-role {
     font-size: 12px;
-    color: var(--text-gray);
-    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
-/* NAVEGACIÓN */
-.nav-links {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.nav-item {
-    display: flex;
-    align-items: center;
-    padding: 10px 12px;
-    text-decoration: none;
-    color: var(--text-gray);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.nav-item:hover {
-    background-color: #f3f4f6;
-    color: var(--text-dark);
-}
-
-.nav-item.active {
-    background-color: #eff6ff; /* Azul muy suave */
-    color: var(--primary);
-    font-weight: 600;
-}
-
-.logout-btn {
-    margin-top: auto; /* Empuja al fondo */
-    padding: 12px 0;
-    color: #ef4444; /* Rojo suave */
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.logout-btn:hover { text-decoration: underline; }
-
-/* LOGO SIDEBAR */
-.brand {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
-    text-align: center;
-}
-.brand img {
-    height: 30px;
-    opacity: 0.8;
-}
-
-/* ================= CONTENIDO PRINCIPAL ================= */
-.main-content {
-    flex: 1;
-    margin-left: 260px; /* Mismo ancho que sidebar */
-    padding: 40px;
-}
-
-.header-title {
-    margin-top: 0;
-    margin-bottom: 32px;
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-dark);
-}
-
-/* TARJETAS KPI */
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 24px;
-    margin-bottom: 40px;
-}
-
-.kpi-card {
-    background: var(--bg-card);
-    padding: 24px;
-    border-radius: 16px;
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.kpi-label {
-    font-size: 14px;
-    color: var(--text-gray);
-    font-weight: 500;
-    margin-bottom: 8px;
+.sidebar nav a {
+    color: var(--text-muted);
+    padding: 12px 15px;
     display: block;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    margin-bottom: 5px;
+    font-size: 14px;
 }
 
-.kpi-value {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin: 0;
-}
-
-/* TABLAS */
-.section-card {
-    background: var(--bg-card);
-    border-radius: 16px;
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 32px;
-    overflow: hidden; /* Para los bordes redondeados */
-}
-
-.section-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border-color);
-    background: #f9fafb;
-}
-
-.section-header h3 {
-    margin: 0;
-    font-size: 16px;
+.sidebar nav a:hover {
+    color: var(--bg-dark);
+    background: var(--accent); /* Botón se vuelve Cyan al pasar el mouse */
     font-weight: 600;
-    color: var(--text-dark);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.4);
 }
 
-.table-responsive {
-    width: 100%;
-    overflow-x: auto;
+.logout {
+    margin-top: 30px;
+    display: block;
+    text-align: center;
+    color: #ff5577; /* Un rojo rosado que combina con el tema oscuro */
+    text-decoration: none;
+    font-size: 14px;
+    transition: 0.3s;
+}
+.logout:hover {
+    color: #ff88aa;
+    text-shadow: 0 0 8px rgba(255, 85, 119, 0.4);
+}
+
+/* ========== MAIN CONTENT ========== */
+h1 {
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-shadow: 0 0 20px rgba(0, 234, 255, 0.1);
+}
+
+/* ========== CARDS ========== */
+.cards {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+    backdrop-filter: blur(10px);
+    padding: 25px;
+    border-radius: 16px;
+    flex: 1;
+    border: 1px solid var(--glass-border);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+}
+
+/* Barra decorativa superior en las cards */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 4px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.card h3 {
+    margin: 10px 0 5px 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+.card p {
+    font-size: 36px;
+    margin: 0;
+    font-weight: 700;
+    color: var(--text-main);
+    text-shadow: 0 0 15px rgba(0, 234, 255, 0.3);
+}
+
+/* ========== TABLAS ========== */
+.panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    padding: 25px;
+    border-radius: 20px;
+    margin-top: 25px;
+    border: 1px solid var(--glass-border);
+}
+
+.panel h3 {
+    margin-top: 0;
+    color: var(--accent);
+    font-weight: 500;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 15px;
 }
 
 table {
     width: 100%;
+    margin-top: 10px;
     border-collapse: collapse;
     font-size: 14px;
 }
 
 th {
     text-align: left;
-    padding: 12px 24px;
-    background: #f9fafb;
-    color: var(--text-gray);
+    color: var(--text-muted);
+    padding: 15px 10px;
     font-weight: 500;
-    text-transform: uppercase;
-    font-size: 12px;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 td {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border-color);
-    color: var(--text-dark);
+    padding: 15px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: #e0e0e0;
 }
 
-tr:last-child td { border-bottom: none; }
-tr:hover td { background-color: #f9fafb; }
+tr:last-child td {
+    border-bottom: none;
+}
 
-/* BADGES (Etiquetas) */
+tr:hover td {
+    background: rgba(0, 234, 255, 0.03);
+}
+
+/* BADGES - Colores ajustados para fondo oscuro */
 .badge {
-    padding: 4px 10px;
-    border-radius: 9999px; /* Píldora */
-    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
     font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.badge.admin { 
+    background: rgba(255, 51, 102, 0.15); 
+    color: #ff3366; 
+    border: 1px solid rgba(255, 51, 102, 0.3);
+}
+.badge.cliente { 
+    background: rgba(0, 234, 255, 0.15); 
+    color: var(--accent); 
+    border: 1px solid rgba(0, 234, 255, 0.3);
+}
+.badge.soporte { 
+    background: rgba(255, 170, 0, 0.15); 
+    color: #ffaa00; 
+    border: 1px solid rgba(255, 170, 0, 0.3);
 }
 
-.badge.admin {
-    background-color: #fee2e2;
-    color: #ef4444;
-}
-.badge.cliente {
-    background-color: #dbeafe;
-    color: #2563eb;
-}
-.badge.soporte {
-    background-color: #fef3c7;
-    color: #d97706;
-}
-
-/* RESPONSIVE */
+/* Responsive */
 @media (max-width: 768px) {
-    .sidebar { display: none; } /* Ocultar sidebar en móvil (se requeriría un botón hamburguesa) */
-    .main-content { margin-left: 0; padding: 20px; }
-    .kpi-grid { grid-template-columns: 1fr; }
+    .wrap { grid-template-columns: 1fr; }
+    .cards { flex-direction: column; }
+    .sidebar { text-align: center; }
 }
+
 </style>
 </head>
 
 <body>
-<div class="layout">
+<div class="wrap">
 
-    <aside class="sidebar">
-        <div class="user-profile">
-            <div class="user-avatar">
-                <?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?>
-            </div>
-            <div class="user-details">
-                <span class="user-name"><?= $_SESSION['nombre_usuario'] ?></span>
-                <span class="user-role">Administrador</span>
-            </div>
+<aside class="sidebar">
+    <img src="imagenes/logo.png" alt="KoLine Logo">
+
+    <div class="user-box">
+        <div class="user-icon">
+            <?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?>
         </div>
+        <p class="user-name"><?= $_SESSION['nombre_usuario']; ?></p>
+        <span class="user-role">Administrador</span>
+    </div>
 
-        <nav class="nav-links">
-            <a href="#" class="nav-item active">📊 Dashboard</a>
-            <a href="#" class="nav-item">👥 Usuarios</a>
-            <a href="#" class="nav-item">🛰 Clientes</a>
-            <a href="#" class="nav-item">🎫 Tickets</a>
-            <a href="#" class="nav-item">📦 Inventario</a>
-            <a href="#" class="nav-item">💰 Pagos</a>
-            <a href="#" class="nav-item">⚙ Configuración</a>
-        </nav>
+    <nav>
+        <a href="#">📊 Dashboard</a>
+        <a href="#">👥 Usuarios</a>
+        <a href="#">🛰 Clientes</a>
+        <a href="#">🎫 Tickets</a>
+        <a href="#">📦 Inventario</a>
+        <a href="#">💰 Pagos</a>
+        <a href="#">⚙ Configuración</a>
+    </nav>
 
-        <a href="index.php" class="logout-btn">← Cerrar sesión</a>
-        
-        <div class="brand">
-            <img src="imagenes/logo.png" alt="KoLine">
+    <a href="index.php" class="logout">← Cerrar sesión</a>
+</aside>
+
+<main>
+    <h1>Panel de Control</h1>
+
+    <div class="cards">
+        <div class="card">
+            <h3>Total Usuarios</h3>
+            <p><?= $total_usuarios ?></p>
         </div>
-    </aside>
-
-    <main class="main-content">
-        <h1 class="header-title">Resumen General</h1>
-
-        <div class="kpi-grid">
-            <div class="kpi-card">
-                <span class="kpi-label">Total Usuarios</span>
-                <p class="kpi-value"><?= $total_usuarios ?></p>
-            </div>
-            <div class="kpi-card">
-                <span class="kpi-label">Clientes Activos</span>
-                <p class="kpi-value" style="color: #2563eb;"><?= $total_clientes ?></p>
-            </div>
-            <div class="kpi-card">
-                <span class="kpi-label">Tickets Abiertos</span>
-                <p class="kpi-value" style="color: #ef4444;"><?= $total_tickets_abiertos ?></p>
-            </div>
+        <div class="card">
+            <h3>Clientes Activos</h3>
+            <p><?= $total_clientes ?></p>
         </div>
-
-        <div class="section-card">
-            <div class="section-header">
-                <h3>Últimos Registros</h3>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Email</th>
-                            <th>Rol</th>
-                            <th>Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach($ultimos_usuarios as $u): ?>
-                        <tr>
-                            <td>
-                                <div style="font-weight:500;"><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></div>
-                            </td>
-                            <td style="color:#6b7280;"><?= $u['email'] ?></td>
-                            <td>
-                                <?php 
-                                    if ($u['id_rol'] == 1) echo "<span class='badge admin'>Admin</span>";
-                                    elseif ($u['id_rol'] == 2) echo "<span class='badge cliente'>Cliente</span>";
-                                    else echo "<span class='badge soporte'>Soporte</span>";
-                                ?>
-                            </td>
-                            <td style="color:#6b7280;"><?= date("d M, Y", strtotime($u['fecha_registro'])) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+        <div class="card">
+            <h3>Tickets Abiertos</h3>
+            <p><?= $total_tickets_abiertos ?></p>
         </div>
+    </div>
 
-        <div class="section-card">
-            <div class="section-header">
-                <h3>Tickets Recientes</h3>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Asunto</th>
-                            <th>Cliente</th>
-                            <th>Prioridad</th>
-                            <th>Estado</th>
-                            <th>Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach($ultimos_tickets as $t): ?>
-                        <tr>
-                            <td style="font-weight:500;"><?= $t['titulo'] ?></td>
-                            <td><?= $t['nombres'] . " " . $t['apellido_paterno'] ?></td>
-                            <td><?= $t['prioridad'] ?></td>
-                            <td>
-                                <span style="font-weight:600; color: #d97706;"><?= $t['estado'] ?></span>
-                            </td>
-                            <td style="color:#6b7280;"><?= date("d M, Y", strtotime($t['fecha_creacion'])) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="panel">
+        <h3>Últimos Usuarios Registrados</h3>
+        <table>
+            <tr>
+                <th>Nombre</th><th>Email</th><th>Rol</th><th>Fecha</th>
+            </tr>
+            <?php foreach($ultimos_usuarios as $u): ?>
+            <tr>
+                <td><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></td>
+                <td><?= $u['email'] ?></td>
+                <td>
+                    <?php 
+                        if ($u['id_rol'] == 1) echo "<span class='badge admin'>Admin</span>";
+                        elseif ($u['id_rol'] == 2) echo "<span class='badge cliente'>Cliente</span>";
+                        else echo "<span class='badge soporte'>Soporte</span>";
+                    ?>
+                </td>
+                <td><?= date("d/m/Y", strtotime($u['fecha_registro'])) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </div>
 
-    </main>
+    <div class="panel">
+        <h3>Últimos Tickets</h3>
+        <table>
+            <tr>
+                <th>Título</th><th>Cliente</th><th>Prioridad</th><th>Estado</th><th>Fecha</th>
+            </tr>
+            <?php foreach($ultimos_tickets as $t): ?>
+            <tr>
+                <td><?= $t['titulo'] ?></td>
+                <td><?= $t['nombres'] . " " . $t['apellido_paterno'] ?></td>
+                <td><?= $t['prioridad'] ?></td>
+                <td><?= $t['estado'] ?></td>
+                <td><?= date("d/m/Y", strtotime($t['fecha_creacion'])) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </div>
+
+</main>
 </div>
+
 </body>
 </html>
