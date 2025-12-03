@@ -65,20 +65,19 @@ try {
 
 <style>
 :root {
-    --bg1:#0a1d37;
-    --bg2:#112240;
+    --bg1:#001f3f;
+    --bg2:#0078ff;
     --accent:#00eaff;
-    --glass: rgba(255,255,255,0.04);
+    --glass: rgba(255,255,255,0.06);
 }
 
 body {
     font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg,var(--bg1),var(--bg2));
+    background: linear-gradient(135deg,var(--bg1),#004ea8,var(--bg2));
     margin: 0;
     color: #eaf6ff;
 }
 
-/* Layout */
 .wrap {
     max-width: 1200px;
     margin: 30px auto;
@@ -88,84 +87,124 @@ body {
     padding: 20px;
 }
 
-/* Sidebar */
+/* ========== SIDEBAR ========== */
 .sidebar {
     background: var(--glass);
     padding: 20px;
     border-radius: 15px;
-    border: 1px solid rgba(0,234,255,0.15);
+    border: 1px solid rgba(255,255,255,0.1);
 }
-.sidebar h2 {
-    margin: 0;
+
+.sidebar img {
+    width: 150px;
+    display: block;
+    margin: 0 auto 20px auto;
+}
+
+/* ICONO DEL USUARIO */
+.user-box {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.user-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 10px auto;
+    background: rgba(255,255,255,0.12);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
     color: var(--accent);
-    font-weight: 700;
+    text-shadow: 0 0 10px rgba(0, 234, 255, 0.6);
+    backdrop-filter: blur(4px);
 }
+
+.user-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #eaf6ff;
+    margin: 5px 0 0;
+}
+
+.user-role {
+    font-size: 13px;
+    opacity: 0.8;
+    color: var(--accent);
+}
+
 .sidebar nav a {
-    color: #dceeff;
+    color: #eee;
     padding: 8px 0;
     display: block;
     text-decoration: none;
-    font-weight: 500;
 }
 .sidebar nav a:hover {
     color: var(--accent);
 }
+
 .logout {
     margin-top: 20px;
     display: block;
     color: #ff99aa;
     text-decoration: none;
-    font-weight: 600;
 }
 
-/* Tarjetas */
-.cards {
-    display: flex;
-    gap: 20px;
-}
+/* ========== CARDS ========== */
 .card {
     background: var(--glass);
     padding: 20px;
     border-radius: 15px;
     flex: 1;
-    border: 1px solid rgba(0,234,255,0.15);
-    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.15);
 }
+
+.cards {
+    display: flex;
+    gap: 20px;
+}
+
 .card h3 {
     margin: 0;
-    color: var(--accent);
+    color: #bcdcff;
 }
+
 .card p {
     font-size: 32px;
     margin: 0;
     font-weight: bold;
 }
 
-/* Paneles */
+/* ========== TABLAS ========== */
 .panel {
     background: var(--glass);
     padding: 20px;
     border-radius: 15px;
     margin-top: 20px;
-    border: 1px solid rgba(0,234,255,0.15);
 }
 
-/* Tablas */
 table {
     width: 100%;
+    margin-top: 10px;
     border-collapse: collapse;
 }
+
 th {
-    color: var(--accent);
+    color: #99d6ff;
     padding: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.15);
-}
-td {
-    padding: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-/* Badges */
+td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* BADGES */
 .badge {
     padding: 4px 8px;
     border-radius: 8px;
@@ -175,17 +214,27 @@ td {
 .badge.admin { background: #ff3366; color: white; }
 .badge.cliente { background: #00eaff; color: #003344; }
 .badge.soporte { background: #ffaa00; color: #222; }
+
 </style>
 </head>
 
 <body>
-
 <div class="wrap">
 
-<!-- SIDEBAR -->
+<!-- ================= SIDEBAR ================= -->
 <aside class="sidebar">
-    <h2>KoLine Admin</h2>
-    <p>Bienvenido<br><strong><?= $_SESSION['nombre_usuario']; ?></strong></p>
+
+    <!-- 🔥 TU LOGO SE MANTIENE -->
+    <img src="imagenes/logo.png" alt="KoLine Logo">
+
+    <!-- 🔥 ICONO DEL USUARIO LOGEADO -->
+    <div class="user-box">
+        <div class="user-icon">
+            <?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?>
+        </div>
+        <p class="user-name"><?= $_SESSION['nombre_usuario']; ?></p>
+        <span class="user-role">Administrador</span>
+    </div>
 
     <nav>
         <a href="#">📊 Dashboard</a>
@@ -200,10 +249,9 @@ td {
     <a href="index.php" class="logout">← Cerrar sesión</a>
 </aside>
 
-
-<!-- CONTENIDO -->
+<!-- ================= MAIN ================= -->
 <main>
-    <h1 style="color: var(--accent);">Panel de Control</h1>
+    <h1>Panel de Control</h1>
 
     <div class="cards">
         <div class="card">
@@ -220,9 +268,9 @@ td {
         </div>
     </div>
 
-    <!-- Últimos usuarios -->
+    <!-- ================= Últimos Usuarios ================= -->
     <div class="panel">
-        <h3 style="color: var(--accent);">Últimos Usuarios Registrados</h3>
+        <h3>Últimos Usuarios Registrados</h3>
         <table>
             <tr>
                 <th>Nombre</th><th>Email</th><th>Rol</th><th>Fecha</th>
@@ -246,9 +294,9 @@ td {
         </table>
     </div>
 
-    <!-- Últimos tickets -->
+    <!-- ================= Últimos Tickets ================= -->
     <div class="panel">
-        <h3 style="color: var(--accent);">Últimos Tickets</h3>
+        <h3>Últimos Tickets</h3>
         <table>
             <tr>
                 <th>Título</th>
@@ -272,7 +320,6 @@ td {
     </div>
 
 </main>
-
 </div>
 
 </body>
