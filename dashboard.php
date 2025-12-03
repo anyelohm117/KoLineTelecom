@@ -2,163 +2,258 @@
 session_start();
 require 'db_con.php';
 
-// --- SEGURIDAD ---
-if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] == 2) {
+/* ============================================
+   🔒 SEGURIDAD: SOLO ADMIN (Rol = 1)
+============================================ */
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
     header("Location: index.php");
     exit();
 }
 
+/* ============================================
+   📌 CONSULTAS PARA DASHBOARD
+============================================ */
+
 $total_usuarios = 0;
 $total_clientes = 0;
+$total_tickets_abiertos = 0;
 $ultimos_usuarios = [];
+$ultimos_tickets = [];
 
 try {
-    // Total usuarios
-    $sql_total = "SELECT COUNT(*) FROM usuarios";
-    $res = $conn->query($sql_total);
-    if ($res) $total_usuarios = $res->fetch_row()[0];
 
-    // Clientes activos (rol 2)
-    $sql_clientes = "SELECT COUNT(*) FROM usuarios WHERE id_rol = 2 AND activo = 1";
-    $res = $conn->query($sql_clientes);
-    if ($res) $total_clientes = $res->fetch_row()[0];
+    // Total de usuarios
+    $res = $conn->query("SELECT COUNT(*) FROM usuarios");
+    $total_usuarios = $res->fetch_row()[0];
 
-    // Últimos 5 usuarios
-    $sql_latest = "SELECT u.*, r.nombre_rol 
-                   FROM usuarios u 
-                   JOIN roles r ON u.id_rol = r.id_rol 
-                   ORDER BY u.fecha_registro DESC LIMIT 5";
-    $res = $conn->query($sql_latest);
-    if ($res) $ultimos_usuarios = $res->fetch_all(MYSQLI_ASSOC);
+    // Total clientes activos (Rol = 2)
+    $res = $conn->query("SELECT COUNT(*) FROM usuarios WHERE id_rol = 2 AND activo = 1");
+    $total_clientes = $res->fetch_row()[0];
+
+    // Tickets abiertos
+    $res = $conn->query("SELECT COUNT(*) FROM tickets WHERE estado = 'Abierto'");
+    $total_tickets_abiertos = $res->fetch_row()[0];
+
+    // Últimos usuarios registrados
+    $sql = "SELECT u.*, r.nombre_rol 
+            FROM usuarios u
+            JOIN roles r ON u.id_rol = r.id_rol
+            ORDER BY fecha_registro DESC LIMIT 5";
+    $ultimos_usuarios = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
+
+    // Últimos 5 tickets
+    $sql = "SELECT t.*, u.nombres, u.apellido_paterno 
+            FROM tickets t
+            JOIN clientes c ON t.id_cliente = c.id_cliente
+            JOIN usuarios u ON c.id_usuario = u.id_usuario
+            ORDER BY fecha_creacion DESC LIMIT 5";
+    $ultimos_tickets = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
 
 } catch (Exception $e) {
-    die("Error de BD: " . $e->getMessage());
+    die("Error: " . $e->getMessage());
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - KoLine Telecom</title>
+<meta charset="utf-8">
+<title>Dashboard KoLine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- FAVICON -->
-    <link rel="icon" type="image/png" href="imagenes/logo.png?v=5">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    <!-- TAILWIND -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- PALETA KOLINE -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        "koline-primary": "#00eaff",
-                        "koline-dark": "#0a1d37",
-                        "koline-card": "#112240",
-                        "koline-error": "#ff3366",
-                    }
-                }
-            }
-        }
-    </script>
+<style>
+:root {
+    --bg1:#001f3f;
+    --bg2:#0078ff;
+    --accent:#00eaff;
+    --glass: rgba(255,255,255,0.06);
+}
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg,var(--bg1),#004ea8,var(--bg2));
+    margin: 0;
+    color: #eaf6ff;
+}
+.wrap {
+    max-width: 1200px;
+    margin: 30px auto;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+    padding: 20px;
+}
+.sidebar {
+    background: var(--glass);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.sidebar h2 {
+    margin: 0;
+    color: var(--accent);
+}
+.sidebar nav a {
+    color: #eee;
+    padding: 8px 0;
+    display: block;
+    text-decoration: none;
+}
+.sidebar nav a:hover {
+    color: var(--accent);
+}
+.card {
+    background: var(--glass);
+    padding: 20px;
+    border-radius: 15px;
+    flex: 1;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+.cards {
+    display: flex;
+    gap: 20px;
+}
+.card h3 {
+    margin: 0;
+    color: #bcdcff;
+}
+.card p {
+    font-size: 32px;
+    margin: 0;
+    font-weight: bold;
+}
+.panel {
+    background: var(--glass);
+    padding: 20px;
+    border-radius: 15px;
+    margin-top: 20px;
+}
+table {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+}
+th {
+    color: #99d6ff;
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.badge {
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+}
+.badge.admin { background: #ff3366; color: white; }
+.badge.cliente { background: #00eaff; color: #003344; }
+.badge.soporte { background: #ffaa00; color: #222; }
+.logout {
+    margin-top: 20px;
+    display: block;
+    color: #ff99aa;
+    text-decoration: none;
+}
+</style>
 </head>
 
-<body class="bg-koline-dark text-white">
+<body>
+<div class="wrap">
 
-    <!-- SIDEBAR -->
-    <aside class="w-64 bg-koline-card h-screen fixed left-0 top-0 p-6 shadow-xl border-r border-koline-primary/20">
-        <h1 class="text-2xl font-bold text-koline-primary">KoLine Admin</h1>
+<!-- ================= SIDEBAR ================= -->
+<aside class="sidebar">
+    <h2>KoLine Admin</h2>
+    <p>Bienvenido<br><strong><?= $_SESSION['nombre_usuario']; ?></strong></p>
 
-        <p class="mt-4 text-sm">
-            Bienvenido, <strong><?php echo htmlspecialchars($_SESSION['nombre_usuario']); ?></strong>
-        </p>
+    <nav>
+        <a href="#">📊 Dashboard</a>
+        <a href="#">👥 Usuarios</a>
+        <a href="#">🛰 Clientes</a>
+        <a href="#">🎫 Tickets</a>
+        <a href="#">📦 Inventario</a>
+        <a href="#">💰 Pagos</a>
+        <a href="#">⚙ Configuración</a>
+    </nav>
 
-        <nav class="mt-6 space-y-3 text-base">
-            <a href="#" class="block p-2 rounded hover:bg-koline-primary hover:text-black font-semibold transition">
-                🏠 Dashboard
-            </a>
-            <a href="#" class="block p-2 text-gray-300 hover:text-white">👤 Usuarios</a>
-            <a href="#" class="block p-2 text-gray-300 hover:text-white">⚙ Configuración</a>
-        </nav>
+    <a href="index.php" class="logout">← Cerrar sesión</a>
+</aside>
 
-        <a href="index.php" class="text-red-400 hover:text-red-500 text-sm mt-6 inline-block">← Cerrar Sesión</a>
-    </aside>
+<!-- ================= MAIN CONTENT ================= -->
+<main>
+    <h1>Panel de Control</h1>
 
-    <!-- NAVBAR -->
-    <header class="ml-64 bg-koline-card p-4 border-b border-koline-primary/20 flex justify-between items-center">
-        <h2 class="text-xl font-semibold">Dashboard</h2>
-        <span class="text-koline-primary">Admin</span>
-    </header>
-
-    <!-- CONTENIDO -->
-    <main class="ml-64 p-6">
-
-        <!-- CARDS -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-            <div class="bg-koline-card p-6 rounded-xl shadow border border-koline-primary/10">
-                <h3 class="text-sm text-gray-300">TOTAL USUARIOS</h3>
-                <p class="text-4xl font-bold text-koline-primary mt-2">
-                    <?php echo $total_usuarios; ?>
-                </p>
-            </div>
-
-            <div class="bg-koline-card p-6 rounded-xl shadow border border-koline-primary/10">
-                <h3 class="text-sm text-gray-300">CLIENTES ACTIVOS</h3>
-                <p class="text-4xl font-bold text-green-400 mt-2">
-                    <?php echo $total_clientes; ?>
-                </p>
-            </div>
-
-            <div class="bg-koline-card p-6 rounded-xl shadow border border-koline-primary/10">
-                <h3 class="text-sm text-gray-300">SISTEMA</h3>
-                <p class="text-xl font-bold text-koline-primary mt-2">En Línea 🟢</p>
-            </div>
-
+    <div class="cards">
+        <div class="card">
+            <h3>Total Usuarios</h3>
+            <p><?= $total_usuarios ?></p>
         </div>
-
-        <!-- TABLA: ÚLTIMOS REGISTROS -->
-        <div class="mt-10 bg-koline-card p-6 rounded-xl shadow border border-koline-primary/10">
-            <h3 class="text-xl font-bold mb-4">Últimos Registros</h3>
-
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="border-b border-koline-primary/20 text-koline-primary">
-                        <th class="p-2">Nombre</th>
-                        <th class="p-2">Email</th>
-                        <th class="p-2">Rol</th>
-                        <th class="p-2">Fecha</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    <?php if (!empty($ultimos_usuarios)): ?>
-                        <?php foreach ($ultimos_usuarios as $u): ?>
-                            <tr class="border-b border-white/10">
-                                <td class="p-2"><?php echo htmlspecialchars($u['nombres'] . ' ' . $u['apellido_paterno']); ?></td>
-                                <td class="p-2"><?php echo htmlspecialchars($u['email']); ?></td>
-                                <td class="p-2">
-                                    <?php if ($u['id_rol'] == 1): ?>
-                                        <span class="px-3 py-1 text-xs bg-koline-error text-white rounded-lg font-bold">Admin</span>
-                                    <?php elseif ($u['id_rol'] == 2): ?>
-                                        <span class="px-3 py-1 text-xs bg-koline-primary text-black rounded-lg font-bold">Cliente</span>
-                                    <?php else: ?>
-                                        <span class="px-3 py-1 text-xs bg-gray-400 text-black rounded-lg font-bold">Staff</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="p-2"><?php echo date('d/m/Y', strtotime($u['fecha_registro'])); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr><td colspan="4" class="p-2 text-gray-400">No hay usuarios registrados aún.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+        <div class="card">
+            <h3>Clientes Activos</h3>
+            <p><?= $total_clientes ?></p>
         </div>
+        <div class="card">
+            <h3>Tickets Abiertos</h3>
+            <p><?= $total_tickets_abiertos ?></p>
+        </div>
+    </div>
 
-    </main>
+    <!-- ================= Últimos Usuarios ================= -->
+    <div class="panel">
+        <h3>Últimos Usuarios Registrados</h3>
+        <table>
+            <tr>
+                <th>Nombre</th><th>Email</th><th>Rol</th><th>Fecha</th>
+            </tr>
+
+            <?php foreach($ultimos_usuarios as $u): ?>
+            <tr>
+                <td><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></td>
+                <td><?= $u['email'] ?></td>
+                <td>
+                    <?php 
+                        if ($u['id_rol'] == 1) echo "<span class='badge admin'>Admin</span>";
+                        elseif ($u['id_rol'] == 2) echo "<span class='badge cliente'>Cliente</span>";
+                        else echo "<span class='badge soporte'>Soporte</span>";
+                    ?>
+                </td>
+                <td><?= date("d/m/Y", strtotime($u['fecha_registro'])) ?></td>
+            </tr>
+            <?php endforeach; ?>
+
+        </table>
+    </div>
+
+    <!-- ================= Últimos Tickets ================= -->
+    <div class="panel">
+        <h3>Últimos Tickets</h3>
+        <table>
+            <tr>
+                <th>Título</th>
+                <th>Cliente</th>
+                <th>Prioridad</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+            </tr>
+
+            <?php foreach($ultimos_tickets as $t): ?>
+            <tr>
+                <td><?= $t['titulo'] ?></td>
+                <td><?= $t['nombres'] . " " . $t['apellido_paterno'] ?></td>
+                <td><?= $t['prioridad'] ?></td>
+                <td><?= $t['estado'] ?></td>
+                <td><?= date("d/m/Y", strtotime($t['fecha_creacion'])) ?></td>
+            </tr>
+            <?php endforeach; ?>
+
+        </table>
+    </div>
+
+</main>
+</div>
 
 </body>
 </html>
