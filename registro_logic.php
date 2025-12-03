@@ -1,60 +1,68 @@
 <?php
-// Configuración de base de datos
-$host = "127.0.0.1";
-$user = "root";
-$pass = "";
-$db   = "wisp_db";
+// registro_logic.php
+session_start();
 
-// Crear conexión
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) die("Error de conexión: " . $conn->connect_error);
+// 1. Usamos el archivo de conexión centralizado (No repetir credenciales)
+require 'db_con.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
-    // 1. Limpieza de datos (Seguridad básica)
-    $nombre    = $conn->real_escape_string($_POST['nombre']);
-    $ap_pat    = $conn->real_escape_string($_POST['apellido_paterno']);
-    $ap_mat    = $conn->real_escape_string($_POST['apellido_materno']);
-    $username  = $conn->real_escape_string($_POST['username']);
-    $email     = $conn->real_escape_string($_POST['email']);
-    $rol       = (int)$_POST['rol']; // Convertir a entero por seguridad
+    // Recibir datos
+    $nombre    = $_POST['nombre'];
+    $ap_pat    = $_POST['apellido_paterno'];
+    $ap_mat    = $_POST['apellido_materno'];
+    $username  = $_POST['username'];
+    $email     = $_POST['email'];
     $clave     = $_POST['clave'];
     $confirmar = $_POST['confirmar_clave'];
+    
+    // --- SEGURIDAD: FORZAR ROL DE CLIENTE ---
+    // Ignoramos lo que envíe el formulario y asignamos 2 (Cliente)
+    // Si quieres crear un admin, hazlo directamente en la BD
+    $rol = 2; 
 
-    // 2. Validación de contraseñas
+    // 2. Validaciones básicas
     if ($clave !== $confirmar) {
         header("Location: registro.php?error=Las contraseñas no coinciden");
         exit();
     }
 
-    // 3. Verificar duplicados (Email o Usuario ya existen)
-    $check = "SELECT id_usuario FROM usuarios WHERE email = '$email' OR username = '$username'";
-    $result = $conn->query($check);
+    // 3. Verificar duplicados (Usando Prepared Statements)
+    $stmt_check = $conn->prepare("SELECT id_usuario FROM usuarios WHERE email = ? OR username = ?");
+    $stmt_check->bind_param("ss", $email, $username);
+    $stmt_check->execute();
+    $stmt_check->store_result();
     
-    if ($result->num_rows > 0) {
-        header("Location: registro.php?error=El correo o el usuario ya están registrados");
+    if ($stmt_check->num_rows > 0) {
+        header("Location: registro.php?error=El correo o el usuario ya existen");
         exit();
     }
+    $stmt_check->close();
 
-    // 4. Encriptar contraseña (Nunca guardar texto plano)
+    // 4. Encriptar contraseña
     $clave_hash = password_hash($clave, PASSWORD_BCRYPT);
 
-    // 5. Insertar en Base de Datos
-    // Nota: 'activo' = 1 para que puedan entrar de inmediato.
-    // Si quisieras que un admin apruebe primero, pon activo = 0.
+    // 5. Insertar usuario (Sentencia Preparada - Nivel CIS de seguridad)
     $sql = "INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, id_rol, activo) 
-            VALUES ('$username', '$email', '$clave_hash', '$nombre', '$ap_pat', '$ap_mat', $rol, 1)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
+            
+    $stmt = $conn->prepare($sql);
+    // "ssssssi" significa: String, String, String, String, String, String, Integer
+    $stmt->bind_param("ssssssi", $username, $email, $clave_hash, $nombre, $ap_pat, $ap_mat, $rol);
 
-    if ($conn->query($sql) === TRUE) {
-        // Éxito: Usamos JS para avisar y redirigir al Login
+    if ($stmt->execute()) {
+        // Éxito
         echo "<script>
-                alert('¡Cuenta creada exitosamente! Por favor inicia sesión.');
-                window.location.href = 'index.php';
+                alert('¡Cuenta creada exitosamente! Bienvenido a KoLine Telecom.');
+                window.location.href = 'index.php'; // Redirigir al login (que ahora sabemos que es index o login.php)
               </script>";
     } else {
-        // Error de BD
-        header("Location: registro.php?error=Error del sistema: " . $conn->error);
+        header("Location: registro.php?error=Error del sistema al registrar");
     }
+    
+    $stmt->close();
+} else {
+    header("Location: registro.php");
 }
 $conn->close();
 ?>
