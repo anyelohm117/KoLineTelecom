@@ -56,7 +56,7 @@
 
     <!-- Logo y títulos -->
     <div class="text-center mb-8">
-        <img src="images/logo.png" alt="Logo KoLine Telecom" 
+        <img src="imagenes/logo.png" alt="Logo KoLine Telecom" 
              class="w-24 h-24 mx-auto mb-4 rounded-full shadow-neon" />
 
         <h1 class="text-3xl font-bold text-koline-primary tracking-wider shadow-neon/50">
