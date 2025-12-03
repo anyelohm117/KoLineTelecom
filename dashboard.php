@@ -1,322 +1,130 @@
+<?php
+session_start();
+require 'db_con.php';
+
+// --- SEGURIDAD: CANDADO ---
+// Si NO está logueado O es un Cliente (Rol 2), lo sacamos
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] == 2) {
+    header("Location: index.php");
+    exit();
+}
+
+$total_usuarios = 0;
+$total_clientes = 0;
+$ultimos_usuarios = [];
+
+try {
+    // 1. Total de usuarios registrados
+    $sql_total = "SELECT COUNT(*) FROM usuarios";
+    $res = $conn->query($sql_total);
+    if($res) $total_usuarios = $res->fetch_row()[0];
+
+    // 2. Total de clientes activos (Rol 2)
+    $sql_clientes = "SELECT COUNT(*) FROM usuarios WHERE id_rol = 2 AND activo = 1";
+    $res = $conn->query($sql_clientes);
+    if($res) $total_clientes = $res->fetch_row()[0];
+
+    // 3. Últimos 5 registros (Uniendo con la tabla de roles para saber qué son)
+    $sql_latest = "SELECT u.*, r.nombre_rol 
+                   FROM usuarios u 
+                   JOIN roles r ON u.id_rol = r.id_rol 
+                   ORDER BY u.fecha_registro DESC LIMIT 5";
+    $res = $conn->query($sql_latest);
+    if($res) $ultimos_usuarios = $res->fetch_all(MYSQLI_ASSOC);
+
+} catch (Exception $e) {
+    die("Error de BD: " . $e->getMessage());
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | KoLine Telecom</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        /* Personalización para el toque "Neon" de KoLine */
-        .neon-text {
-            text-shadow: 0 0 10px rgba(6, 182, 212, 0.7);
-        }
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Dashboard - KoLine</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg1:#001f3f; --bg2:#0078ff; --accent:#00c6ff; --glass: rgba(255,255,255,0.06); }
+  body{ font-family:'Poppins',sans-serif; margin:0; background: linear-gradient(135deg,var(--bg1), #004ea8, var(--bg2)); color:#eaf6ff; min-height:100vh; }
+  .wrap{ max-width:1100px; margin:30px auto; display:grid; grid-template-columns: 260px 1fr; gap:20px; padding:20px; }
+  .sidebar, .card, .panel { background:var(--glass); padding:20px; border-radius:14px; border:1px solid rgba(255,255,255,0.1); }
+  .sidebar h2 { color:var(--accent); margin-top:0; }
+  .cards { display:flex; gap:20px; margin-bottom:20px; }
+  .card { flex:1; } .card h3 { margin:0 0 10px 0; color:#ccc; font-size:14px; } .card p { font-size:32px; font-weight:bold; margin:0; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; }
+  th { text-align:left; color:#88cbff; border-bottom:1px solid rgba(255,255,255,0.1); padding:10px; }
+  td { padding:12px 10px; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .badge { padding:4px 8px; border-radius:10px; font-size:12px; font-weight:bold; }
+  .badge.admin { background:#ff3366; color:white; }
+  .badge.cliente { background:#00eaff; color:#003344; }
+  a.logout { display:inline-block; margin-top:20px; color:#ff99aa; text-decoration:none; }
+</style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans antialiased">
+<body>
+<div class="wrap">
+  <aside class="sidebar">
+    <h2>KoLine Admin</h2>
+    <p>Bienvenido, <strong><?php echo htmlspecialchars($_SESSION['nombre_usuario']); ?></strong></p>
+    <nav style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+      <a href="#" style="color:white; font-weight:bold;">Dashboard</a>
+      <a href="#" style="color:#ccc;">Usuarios</a>
+      <a href="#" style="color:#ccc;">Configuración</a>
+    </nav>
+    <a href="index.php" class="logout">← Cerrar Sesión</a>
+  </aside>
 
-    <div class="flex h-screen overflow-hidden">
-
-        <aside class="w-64 bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300">
-            <div class="h-16 flex items-center justify-center border-b border-slate-800">
-                <i class="fa-solid fa-wifi text-cyan-400 text-2xl mr-2"></i>
-                <h1 class="text-xl font-bold tracking-wider">KoLine <span class="text-cyan-400 neon-text">Telecom</span></h1>
-            </div>
-
-            <nav class="flex-1 overflow-y-auto py-4">
-                <ul class="space-y-2 px-4">
-                    <li>
-                        <a href="#" class="flex items-center p-3 text-cyan-400 bg-slate-900 rounded-lg border border-slate-800 shadow-md">
-                            <i class="fa-solid fa-gauge-high w-6"></i>
-                            <span class="font-medium">Dashboard</span>
-                        </a>
-                    </li>
-                    
-                    <p class="text-xs text-slate-500 uppercase font-semibold mt-4 mb-2 pl-2">Gestión</p>
-                    <li>
-                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
-                            <i class="fa-solid fa-users w-6"></i>
-                            <span>Clientes</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
-                            <i class="fa-solid fa-file-invoice-dollar w-6"></i>
-                            <span>Facturación</span>
-                        </a>
-                    </li>
-
-                    <p class="text-xs text-slate-500 uppercase font-semibold mt-4 mb-2 pl-2">Técnico</p>
-                    <li>
-                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
-                            <i class="fa-solid fa-headset w-6"></i>
-                            <span>Soporte / Tickets</span>
-                            <span class="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">3</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
-                            <i class="fa-solid fa-boxes-stacked w-6"></i>
-                            <span>Almacén</span>
-                        </a>
-                    </li>
-
-                    <p class="text-xs text-slate-500 uppercase font-semibold mt-4 mb-2 pl-2">Sistema</p>
-                    <li>
-                        <a href="#" class="flex items-center p-3 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 rounded-lg transition-colors">
-                            <i class="fa-solid fa-users-gear w-6"></i>
-                            <span>Empleados</span>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-
-            <div class="p-4 border-t border-slate-800">
-                <div class="flex items-center gap-3">
-                    <img class="h-10 w-10 rounded-full border-2 border-cyan-500" src="https://ui-avatars.com/api/?name=Admin+User&background=06b6d4&color=fff" alt="">
-                    <div>
-                        <p class="text-sm font-medium text-white">Administrador</p>
-                        <p class="text-xs text-slate-500">admin@koline.com</p>
-                    </div>
-                    <button class="ml-auto text-slate-400 hover:text-red-400"><i class="fa-solid fa-right-from-bracket"></i></button>
-                </div>
-            </div>
-        </aside>
-
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-900 p-8">
-            
-            <div class="flex justify-between items-center mb-8">
-                <div>
-                    <h2 class="text-3xl font-bold text-white">Resumen General</h2>
-                    <p class="text-slate-400">Bienvenido al panel de control de KoLine Telecom</p>
-                </div>
-                <div class="flex gap-4">
-                    <button class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg shadow-lg shadow-cyan-500/20 transition">
-                        <i class="fa-solid fa-plus mr-2"></i> Nuevo Cliente
-                    </button>
-                    <button class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-700 transition">
-                        <i class="fa-solid fa-filter mr-2"></i> Filtrar
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                
-                <div class="glass-panel p-6 rounded-xl border-l-4 border-emerald-500 shadow-lg">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-slate-400 text-sm font-medium uppercase">Ingresos (Hoy)</p>
-                            <h3 class="text-2xl font-bold text-white mt-1">$ 12,450.00</h3>
-                        </div>
-                        <div class="p-3 bg-emerald-500/10 rounded-lg text-emerald-500">
-                            <i class="fa-solid fa-money-bill-wave text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-emerald-400 text-xs mt-4 flex items-center">
-                        <i class="fa-solid fa-arrow-up mr-1"></i> +15% vs ayer
-                    </p>
-                </div>
-
-                <div class="glass-panel p-6 rounded-xl border-l-4 border-cyan-500 shadow-lg">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-slate-400 text-sm font-medium uppercase">Clientes Activos</p>
-                            <h3 class="text-2xl font-bold text-white mt-1">842</h3>
-                        </div>
-                        <div class="p-3 bg-cyan-500/10 rounded-lg text-cyan-500">
-                            <i class="fa-solid fa-users text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-cyan-400 text-xs mt-4 flex items-center">
-                        <i class="fa-solid fa-wifi mr-1"></i> 5 instalaciones hoy
-                    </p>
-                </div>
-
-                <div class="glass-panel p-6 rounded-xl border-l-4 border-orange-500 shadow-lg">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-slate-400 text-sm font-medium uppercase">Tickets Soporte</p>
-                            <h3 class="text-2xl font-bold text-white mt-1">12</h3>
-                        </div>
-                        <div class="p-3 bg-orange-500/10 rounded-lg text-orange-500">
-                            <i class="fa-solid fa-triangle-exclamation text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-orange-400 text-xs mt-4 flex items-center">
-                        <i class="fa-regular fa-clock mr-1"></i> 2 urgentes
-                    </p>
-                </div>
-
-                <div class="glass-panel p-6 rounded-xl border-l-4 border-purple-500 shadow-lg">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-slate-400 text-sm font-medium uppercase">Stock Routers</p>
-                            <h3 class="text-2xl font-bold text-white mt-1">45</h3>
-                        </div>
-                        <div class="p-3 bg-purple-500/10 rounded-lg text-purple-500">
-                            <i class="fa-solid fa-box-open text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-red-400 text-xs mt-4 flex items-center">
-                        <i class="fa-solid fa-circle-exclamation mr-1"></i> Stock bajo en ONUs
-                    </p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                <div class="lg:col-span-2 glass-panel p-6 rounded-xl">
-                    <h3 class="text-lg font-bold text-white mb-4">Ingresos vs Gastos (Últimos 6 Meses)</h3>
-                    <div class="relative h-64 w-full">
-                        <canvas id="financeChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="glass-panel p-6 rounded-xl">
-                    <h3 class="text-lg font-bold text-white mb-4">Pagos Recientes</h3>
-                    <div class="overflow-y-auto h-64 pr-2">
-                        <div class="flex items-center justify-between p-3 mb-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-green-900/50 flex items-center justify-center text-green-400">
-                                    <i class="fa-solid fa-money-bill"></i>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-white">Juan Pérez</p>
-                                    <p class="text-xs text-slate-400">Hace 10 min</p>
-                                </div>
-                            </div>
-                            <span class="text-emerald-400 font-bold text-sm">+$450.00</span>
-                        </div>
-                         <div class="flex items-center justify-between p-3 mb-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center text-blue-400">
-                                    <i class="fa-solid fa-credit-card"></i>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-white">Maria Lopez</p>
-                                    <p class="text-xs text-slate-400">Hace 35 min</p>
-                                </div>
-                            </div>
-                            <span class="text-emerald-400 font-bold text-sm">+$600.00</span>
-                        </div>
-                         <div class="flex items-center justify-between p-3 mb-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-green-900/50 flex items-center justify-center text-green-400">
-                                    <i class="fa-solid fa-money-bill"></i>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-white">Carlos Ruiz</p>
-                                    <p class="text-xs text-slate-400">Hace 1 hora</p>
-                                </div>
-                            </div>
-                            <span class="text-emerald-400 font-bold text-sm">+$450.00</span>
-                        </div>
-                    </div>
-                    <button class="w-full mt-4 py-2 text-sm text-cyan-400 border border-cyan-900 rounded-lg hover:bg-cyan-900/20 transition">
-                        Ver todos los movimientos
-                    </button>
-                </div>
-            </div>
-
-            <div class="mt-8 glass-panel rounded-xl overflow-hidden">
-                <div class="p-6 border-b border-slate-800 flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-white">Soporte Técnico - Pendientes</h3>
-                    <span class="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full font-bold">Atención Requerida</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-400">
-                        <thead class="bg-slate-800 text-slate-200 uppercase text-xs">
-                            <tr>
-                                <th class="px-6 py-3">ID Ticket</th>
-                                <th class="px-6 py-3">Cliente</th>
-                                <th class="px-6 py-3">Asunto</th>
-                                <th class="px-6 py-3">Prioridad</th>
-                                <th class="px-6 py-3">Estado</th>
-                                <th class="px-6 py-3">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800">
-                            <tr class="hover:bg-slate-800/50 transition">
-                                <td class="px-6 py-4 font-medium text-white">#TK-802</td>
-                                <td class="px-6 py-4">Roberto Gómez</td>
-                                <td class="px-6 py-4">Sin conexión - Luz roja en router</td>
-                                <td class="px-6 py-4"><span class="px-2 py-1 bg-red-500/10 text-red-500 rounded text-xs font-bold">Alta</span></td>
-                                <td class="px-6 py-4 text-orange-400">Abierto</td>
-                                <td class="px-6 py-4">
-                                    <button class="text-cyan-400 hover:text-cyan-300">Ver</button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-slate-800/50 transition">
-                                <td class="px-6 py-4 font-medium text-white">#TK-801</td>
-                                <td class="px-6 py-4">Ana Martínez</td>
-                                <td class="px-6 py-4">Cambio de contraseña Wifi</td>
-                                <td class="px-6 py-4"><span class="px-2 py-1 bg-blue-500/10 text-blue-500 rounded text-xs font-bold">Baja</span></td>
-                                <td class="px-6 py-4 text-yellow-400">En Proceso</td>
-                                <td class="px-6 py-4">
-                                    <button class="text-cyan-400 hover:text-cyan-300">Ver</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </main>
+  <main>
+    <h1>Panel de Control</h1>
+    
+    <div class="cards">
+      <div class="card">
+        <h3>TOTAL USUARIOS</h3>
+        <p><?php echo $total_usuarios; ?></p>
+      </div>
+      <div class="card">
+        <h3>CLIENTES ACTIVOS</h3>
+        <p><?php echo $total_clientes; ?></p>
+      </div>
+      <div class="card">
+        <h3>SISTEMA</h3>
+        <p style="font-size:18px; color:#00eaff;">En Línea 🟢</p>
+      </div>
     </div>
 
-    <script>
-        const ctx = document.getElementById('financeChart').getContext('2d');
-        const financeChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                datasets: [{
-                    label: 'Ingresos',
-                    data: [12000, 19000, 3000, 5000, 20000, 30000],
-                    borderColor: '#06b6d4', // Cyan
-                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Gastos',
-                    data: [8000, 10000, 2500, 4000, 12000, 15000],
-                    borderColor: '#ef4444', // Red
-                    backgroundColor: 'rgba(239, 68, 68, 0)',
-                    tension: 0.4,
-                    borderDash: [5, 5]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: '#94a3b8' }
-                    }
-                },
-                scales: {
-                    y: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: '#334155' }
-                    },
-                    x: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { display: false }
-                    }
-                }
-            }
-        });
-    </script>
+    <div class="panel">
+      <h3>Últimos Registros</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if(!empty($ultimos_usuarios)): ?>
+            <?php foreach($ultimos_usuarios as $u): ?>
+              <tr>
+                <td><?php echo htmlspecialchars($u['nombres'] . ' ' . $u['apellido_paterno']); ?></td>
+                <td><?php echo htmlspecialchars($u['email']); ?></td>
+                <td>
+                    <?php 
+                        if($u['id_rol'] == 1) echo '<span class="badge admin">Admin</span>';
+                        elseif($u['id_rol'] == 2) echo '<span class="badge cliente">Cliente</span>';
+                        else echo '<span class="badge">Staff</span>';
+                    ?>
+                </td>
+                <td><?php echo date('d/m/Y', strtotime($u['fecha_registro'])); ?></td>
+              </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr><td colspan="4">No hay usuarios registrados aún.</td></tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
 </body>
 </html>
