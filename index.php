@@ -14,7 +14,7 @@
                 colors: {
                     'koline-primary': '#00eaff',
                     'koline-dark': '#0a1d37',
-                    'koline-error': '#ff3366', // Color extra para errores
+                    'koline-error': '#ff3366',
                 },
                 fontFamily: {
                     sans: ['Inter', 'sans-serif'],
@@ -22,7 +22,7 @@
                 boxShadow: {
                     'neon': '0 0 15px rgba(0, 234, 255, 0.7)',
                     'neon-lg': '0 0 30px rgba(0, 234, 255, 0.9)',
-                    'neon-red': '0 0 15px rgba(255, 51, 102, 0.6)', // Sombra roja para error
+                    'neon-red': '0 0 15px rgba(255, 51, 102, 0.6)',
                 },
                 animation: {
                     'pulse-slow': 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate',
@@ -52,18 +52,20 @@
 <div class="absolute w-96 h-96 bg-koline-primary rounded-full blur-[100px] opacity-20 animate-pulse-slow top-1/4 left-3/4"></div>
 <div class="absolute w-72 h-72 bg-blue-500 rounded-full blur-[120px] opacity-15 animate-pulse-slow bottom-1/4 left-1/4 animation-delay-2000"></div>
 
-
 <div class="w-full max-w-sm bg-white/5 backdrop-blur-xl border border-koline-primary/30 rounded-2xl p-8 shadow-neon-lg z-10 transition-all duration-300 hover:shadow-neon-lg/90">
 
+    <!-- Logo y títulos -->
     <div class="text-center mb-8">
-        <svg class="w-12 h-12 mx-auto mb-2 text-koline-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-        </svg>
+        <img src="images/logo.png" alt="Logo KoLine Telecom" 
+             class="w-24 h-24 mx-auto mb-4 rounded-full shadow-neon" />
 
-        <h1 class="text-3xl font-bold text-koline-primary tracking-wider shadow-neon/50">KoLine Telecom</h1>
+        <h1 class="text-3xl font-bold text-koline-primary tracking-wider shadow-neon/50">
+            KoLine Telecom
+        </h1>
         <h2 class="text-xl font-medium mt-3 text-white">Acceso a la Red</h2>
     </div>
 
+    <!-- Mensajes de error -->
     <?php if(isset($_GET['error'])): ?>
         <div class="mb-4 p-3 bg-red-900/40 border border-koline-error rounded-xl text-red-200 text-sm text-center shadow-neon-red backdrop-blur-md animate-pulse">
             <?php 
@@ -74,6 +76,7 @@
         </div>
     <?php endif; ?>
 
+    <!-- Formulario -->
     <form action="login_logic.php" method="POST" class="space-y-4">
         
         <input type="email" name="correo_electronico" placeholder="Correo electrónico" required
@@ -91,6 +94,7 @@
         </button>
     </form>
 
+    <!-- Registro -->
     <p class="text-sm text-center text-gray-400 mt-6">
         ¿No tienes cuenta?
         <a href="registro.php" class="font-medium text-koline-primary hover:text-koline-primary/80 transition duration-200 hover:shadow-neon/50">
@@ -98,6 +102,7 @@
         </a>
     </p>
 
+    <!-- Recuperar contraseña -->
     <div class="text-center mt-3">
         <a href="#" class="text-xs text-gray-500 hover:text-koline-primary transition duration-200">
             Olvidé mi contraseña
