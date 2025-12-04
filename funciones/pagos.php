@@ -203,7 +203,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
             <a href="uduarios.php">👥 Usuarios</a>
-            <a href="cliente.php">🛰 Clientes</a>
+            <a href="clientes.php">🛰 Clientes</a>
             <a href="#tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
             <a href="../pagos.php" class="active">💰 Pagos</a>
