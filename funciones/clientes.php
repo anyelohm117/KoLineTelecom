@@ -16,6 +16,9 @@ if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'
     exit();
 }
 
+// Variable para controlar el menú visualmente
+$es_admin = ($_SESSION['rol'] == 1); 
+
 /* ============================================
    📝 LÓGICA: REGISTRAR NUEVO CLIENTE (DOBLE INSERT)
 ============================================ */
@@ -61,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_cliente'
         $conn->commit();
         $mensaje = "<div class='alert success'>✅ Cliente <b>$nombres</b> registrado y activo.</div>";
 
-    } catch (Exception $e) { // Cambié mysqli_sql_exception por Exception para capturar todo
+    } catch (Exception $e) {
         $conn->rollback(); // Deshacer cambios si hay error
         if ($conn->errno == 1062) {
              $mensaje = "<div class='alert error'>⚠️ Error: El Usuario, Email o IP ya están registrados.</div>";
@@ -93,6 +96,7 @@ $lista_clientes = $conn->query($sql_clientes)->fetch_all(MYSQLI_ASSOC);
 <title>Gestión de Clientes | KoLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
 /* Reutilizamos los estilos base */
@@ -108,9 +112,13 @@ body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at
 .sidebar::-webkit-scrollbar { display: none; }
 
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
-.sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; }
+.sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; font-size: 14px; }
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
+
+/* ESTILO BLOQUEADO */
+.nav-locked { opacity: 0.5; cursor: not-allowed; display: flex; justify-content: space-between; align-items: center; }
+.nav-locked:hover { background: rgba(255, 51, 85, 0.1) !important; color: #ff3355 !important; box-shadow: none !important; }
 
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
@@ -149,12 +157,28 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
-            <a href="usuarios.php">👥 Usuarios</a>
+
+            <?php if($es_admin): ?>
+                <a href="usuarios.php">👥 Usuarios</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">👥 Usuarios <span>🔒</span></a>
+            <?php endif; ?>
+
             <a href="clientes.php" class="active">🛰 Clientes</a>
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
-            <a href="pagos.php">💰 Pagos</a>
-            <a href="../configuracion.php">⚙ Configuración</a>
+
+            <?php if($es_admin): ?>
+                <a href="pagos.php">💰 Pagos</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">💰 Pagos <span>🔒</span></a>
+            <?php endif; ?>
+
+            <?php if($es_admin): ?>
+                <a href="../configuracion.php">⚙ Configuración</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">⚙ Configuración <span>🔒</span></a>
+            <?php endif; ?>
         </nav>
         <div style="text-align:center; margin-top:30px;">
             <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
@@ -305,6 +329,21 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
     </main>
 </div>
+
+<script>
+    function noPermiso(e) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Acceso Restringido',
+            text: 'Tu perfil de Soporte Técnico no tiene permisos para acceder a este módulo.',
+            background: '#0a1f35',
+            color: '#fff',
+            confirmButtonColor: '#ff3366',
+            confirmButtonText: 'Entendido'
+        });
+    }
+</script>
 
 </body>
 </html>
