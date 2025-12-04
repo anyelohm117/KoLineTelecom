@@ -31,22 +31,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['username'] = $row['username'];
             $_SESSION['rol'] = $row['id_rol']; // 1=Admin, 2=Cliente, 3=Soporte
 
-            // 3. REDIRECCIÓN SEGÚN EL ROL
-            switch ($row['id_rol']) {
-                case 1: // Administrador
-                case 3: // Soporte Técnico
-                    header("Location: dashboard.php");
-                    break;
-                    
-                case 2: // Cliente
-                    header("Location: dashboardC.php");
-                    break;
-                    
-                default:
-                    header("Location: index.php?error=rol_desconocido");
-                    break;
+            // 3. 🚦 SEMÁFORO DE REDIRECCIÓN (Triple División)
+            
+            if ($row['id_rol'] == 2) {
+                // === ROL CLIENTE ===
+                // Lo enviamos a su portal exclusivo (asegúrate de que el archivo se llame así)
+                header("Location: dashboardC.php");
+                
+            } elseif ($row['id_rol'] == 1 || $row['id_rol'] == 3) {
+                // === ROL STAFF (Admin o Soporte) ===
+                // Los enviamos al Dashboard Administrativo
+                header("Location: dashboard.php");
+                
+            } else {
+                // Rol desconocido o inválido
+                session_destroy();
+                header("Location: index.php?error=rol_desconocido");
             }
-            exit();
+            
+            exit(); // Detener script después de redirigir
 
         } else {
             // Contraseña incorrecta
@@ -59,6 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 } else {
+    // Si intentan entrar directo al archivo sin POST
     header("Location: index.php");
     exit();
 }
