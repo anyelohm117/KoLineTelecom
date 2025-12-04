@@ -340,7 +340,7 @@ tr:hover td {
         <a href="#">👥 Usuarios</a>
         <a href="#">🛰 Clientes</a>
         <a href="#">🎫 Tickets</a>
-        <a href="#">📦 Inventario</a>
+        <a href="funciones/inventario.php">📦 Inventario</a>
         <a href="funciones/pagos.php">💰 Pagos</a>
         <a href="#">⚙ Configuración</a>
     </nav>
