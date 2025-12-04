@@ -17,13 +17,11 @@ $roles_permitidos = [1, 3];
 
 // 3. Validar permiso
 if (!in_array($_SESSION['rol'], $roles_permitidos)) {
-    // Si no está en la lista permitida...
-    
-    // ¿Es Cliente (2)? -> Mandar a su dashboard
+    // Si es Cliente (2) -> Mandar a su dashboard
     if ($_SESSION['rol'] == 2) {
         header("Location: cliente_dashboard.php");
     } else {
-        // ¿Cualquier otro? -> Mandar al login
+        // Cualquier otro -> Mandar al login
         header("Location: index.php");
     }
     exit();
