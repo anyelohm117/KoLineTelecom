@@ -155,7 +155,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 <div class="wrap">
     
     <aside class="sidebar">
-        <img src="../imagenes/logo.png" alt="KoLine">
+        <img src="imagenes/logo.png" alt="KoLine">
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
 
