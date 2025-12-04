@@ -3,12 +3,24 @@ session_start();
 require '../db_con.php';
 
 /* ============================================
-   🔒 SEGURIDAD
+   🔒 SEGURIDAD ESTRICTA: SOLO ADMIN (Rol 1)
 ============================================ */
-if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
-    header("Location: index.php");
+if (!isset($_SESSION['id_usuario'])) {
+    header("Location: ../index.php");
     exit();
 }
+
+// Si intenta entrar soporte (3) o cliente (2), lo sacamos amablemente
+if ($_SESSION['rol'] != 1) {
+    echo "<script>
+            alert('⛔ ACCESO DENEGADO: Solo el Administrador puede gestionar los pagos.');
+            window.location.href='../dashboard.php';
+          </script>";
+    exit();
+}
+
+// Variable para controlar el menú (siempre será true aquí, pero mantenemos consistencia)
+$es_admin = true; 
 
 /* ============================================
    📝 LÓGICA: REGISTRAR NUEVO PAGO
@@ -39,8 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_pago']))
    📌 CONSULTAS PARA LISTAS Y TABLAS
 ============================================ */
 
-// 1. Obtener lista de clientes (Para el select del formulario)
-// Hacemos JOIN con usuarios y planes para mostrar nombre y precio sugerido
+// 1. Obtener lista de clientes
 $sql_clientes = "SELECT c.id_cliente, u.nombres, u.apellido_paterno, p.nombre_plan, p.precio_mensual 
                  FROM clientes c 
                  JOIN usuarios u ON c.id_usuario = u.id_usuario 
@@ -51,7 +62,7 @@ $clientes = $conn->query($sql_clientes)->fetch_all(MYSQLI_ASSOC);
 // 2. Obtener formas de pago
 $formas_pago = $conn->query("SELECT * FROM formas_pago")->fetch_all(MYSQLI_ASSOC);
 
-// 3. Obtener historial de pagos (Últimos 20)
+// 3. Obtener historial de pagos
 $sql_historial = "SELECT p.*, u.nombres, u.apellido_paterno, fp.metodo 
                   FROM pagos_servicios p 
                   JOIN clientes c ON p.id_cliente = c.id_cliente 
@@ -68,125 +79,52 @@ $pagos = $conn->query($sql_historial)->fetch_all(MYSQLI_ASSOC);
 <title>Gestión de Pagos | KoLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../imagenes/logo.png">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
 /* =========================================
-   🎨 ESTILOS GENERALES (Mismos del Dashboard)
+   🎨 ESTILOS GENERALES
    ========================================= */
-:root {
-    --bg-dark: #020c1b; 
-    --accent: #00eaff;
-    --accent-hover: #00cce6;
-    --glass-bg: rgba(13, 25, 40, 0.85); 
-    --glass-border: rgba(0, 234, 255, 0.15);
-    --text-main: #ffffff;
-    --text-muted: #8899a6;
-}
+:root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
+body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
+.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; align-items: start; }
 
-body {
-    font-family: 'Poppins', sans-serif;
-    background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%);
-    background-color: var(--bg-dark);
-    background-attachment: fixed;
-    margin: 0;
-    color: var(--text-main);
-    min-height: 100vh;
+/* SIDEBAR STICKY */
+.sidebar { 
+    background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); 
+    position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: none;
 }
+.sidebar::-webkit-scrollbar { display: none; }
 
-.wrap {
-    max-width: 1200px;
-    margin: 40px auto;
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 30px;
-    padding: 20px;
-}
-
-/* SIDEBAR (Reutilizado) */
-.sidebar {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    padding: 30px 20px;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
-    height: fit-content;
-}
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
-.sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; }
+.sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; font-size: 14px; }
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
 
-/* CONTENIDO PRINCIPAL */
+/* ESTILO BLOQUEADO */
+.nav-locked { opacity: 0.5; cursor: not-allowed; display: flex; justify-content: space-between; align-items: center; }
+.nav-locked:hover { background: rgba(255, 51, 85, 0.1) !important; color: #ff3355 !important; box-shadow: none !important; }
+
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
-
-/* FORMULARIO ESTILO GLASS */
-.form-panel {
-    background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
-    backdrop-filter: blur(10px);
-    padding: 25px;
-    border-radius: 16px;
-    border: 1px solid var(--glass-border);
-    margin-bottom: 30px;
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-}
-
+.form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
 .input-group { display: flex; flex-direction: column; }
 .input-group label { font-size: 12px; color: var(--accent); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
-
-input, select {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-    padding: 12px;
-    border-radius: 8px;
-    color: white;
-    font-family: inherit;
-    outline: none;
-    transition: 0.3s;
-}
-
+input, select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; color: white; font-family: inherit; outline: none; transition: 0.3s; }
 input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
-
-.btn-submit {
-    grid-column: 1 / -1;
-    background: var(--accent);
-    color: var(--bg-dark);
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 16px;
-    margin-top: 10px;
-    transition: 0.3s;
-}
+.btn-submit { grid-column: 1 / -1; background: var(--accent); color: var(--bg-dark); padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; transition: 0.3s; }
 .btn-submit:hover { background: var(--accent-hover); box-shadow: 0 0 15px rgba(0, 234, 255, 0.5); }
-
-/* TABLA */
-.table-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    padding: 25px;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
-}
+.table-panel { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; }
+td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle; }
 tr:hover td { background: rgba(0, 234, 255, 0.03); }
-
-/* STATUS BADGES */
 .status { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
 .pagado { background: rgba(0, 255, 136, 0.15); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.3); }
 .pendiente { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); }
 .rechazado { background: rgba(255, 51, 85, 0.15); color: #ff3355; border: 1px solid rgba(255, 51, 85, 0.3); }
-
-/* ALERTAS */
 .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
@@ -202,15 +140,31 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
-            <a href="usuarios.php">👥 Usuarios</a>
+
+            <?php if($es_admin): ?>
+                <a href="usuarios.php">👥 Usuarios</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">👥 Usuarios <span>🔒</span></a>
+            <?php endif; ?>
+
             <a href="clientes.php">🛰 Clientes</a>
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
-            <a href="../pagos.php" class="active">💰 Pagos</a>
-            <a href="#">⚙ Configuración</a>
+
+            <?php if($es_admin): ?>
+                <a href="pagos.php" class="active">💰 Pagos</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">💰 Pagos <span>🔒</span></a>
+            <?php endif; ?>
+
+            <?php if($es_admin): ?>
+                <a href="../configuracion.php">⚙ Configuración</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">⚙ Configuración <span>🔒</span></a>
+            <?php endif; ?>
         </nav>
         <div style="text-align:center; margin-top:30px;">
-            <a href="index.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
+            <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
         </div>
     </aside>
 
@@ -331,6 +285,19 @@ function actualizarMonto() {
     } else {
         montoInput.value = '';
     }
+}
+
+// Script para la alerta si por alguna razón un soporte técnico lograra ver los botones bloqueados
+function noPermiso(e) {
+    e.preventDefault();
+    Swal.fire({
+        icon: 'error',
+        title: 'Acceso Restringido',
+        text: 'Tu perfil no tiene permisos para acceder a este módulo.',
+        background: '#0a1f35',
+        color: '#fff',
+        confirmButtonColor: '#ff3366'
+    });
 }
 </script>
 
