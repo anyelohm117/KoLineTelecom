@@ -3,188 +3,109 @@ session_start();
 require '../db_con.php'; 
 
 /* ============================================
-   🔒 SEGURIDAD
+   🔒 SEGURIDAD: ADMIN (1) Y SOPORTE (3)
 ============================================ */
-if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
-    header("Location: ../index.php"); 
+if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
+    header("Location: ../index.php");
     exit();
 }
 
 $mensaje = "";
 
-/* ============================================
-   🛑 LÓGICA: BLOQUEAR / ACTIVAR / BORRAR
-============================================ */
-if (isset($_GET['accion']) && isset($_GET['id'])) {
-    $id_target = $_GET['id'];
-    
-    // Evitar auto-bloqueo o auto-borrado
-    if ($id_target == $_SESSION['id_usuario']) {
-        $mensaje = "<div class='alert error'>⛔ No puedes bloquear o eliminar tu propia cuenta mientras estás conectado.</div>";
-    } else {
-        
-        // A. BLOQUEAR / ACTIVAR (TOGGLE)
-        if ($_GET['accion'] == 'toggle') {
-            try {
-                $check = $conn->query("SELECT activo FROM usuarios WHERE id_usuario = $id_target")->fetch_assoc();
-                $nuevo_estado = ($check['activo'] == 1) ? 0 : 1;
-                
-                $stmt = $conn->prepare("UPDATE usuarios SET activo = ? WHERE id_usuario = ?");
-                $stmt->bind_param("ii", $nuevo_estado, $id_target);
-                $stmt->execute();
-                
-                $estado_txt = ($nuevo_estado == 1) ? "Reactivado" : "Bloqueado";
-                $mensaje = "<div class='alert success'>🔄 Usuario $estado_txt correctamente.</div>";
-            } catch (Exception $e) {
-                $mensaje = "<div class='alert error'>Error al cambiar estado.</div>";
-            }
-        }
-        
-        // B. ELIMINAR (BORRAR DE DB)
-        elseif ($_GET['accion'] == 'borrar') {
-            try {
-                $stmt = $conn->prepare("DELETE FROM usuarios WHERE id_usuario = ?");
-                $stmt->bind_param("i", $id_target);
-                $stmt->execute();
-                $mensaje = "<div class='alert success'>🗑️ Usuario eliminado permanentemente.</div>";
-            } catch (Exception $e) {
-                // Error 1451: Integridad Referencial
-                if ($conn->errno == 1451) {
-                    $mensaje = "<div class='alert error'>⚠️ No puedes eliminar este usuario: Tiene historial asociado (Tickets, Clientes o Pagos). <br>Mejor usa la opción de 'Bloquear'.</div>";
-                } else {
-                    $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
-                }
-            }
-        }
-    }
-}
-
-/* ============================================
-   📝 LÓGICA: REGISTRAR NUEVO USUARIO
-============================================ */
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'])) {
-    $nombres = trim($_POST['nombres']);
-    $apellido_p = trim($_POST['apellido_p']);
-    $apellido_m = trim($_POST['apellido_m']);
-    $telefono = trim($_POST['telefono']);
-    $email = trim($_POST['email']);
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    $id_rol = $_POST['id_rol'];
+// LÓGICA: CREAR TICKET
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_crear_ticket'])) {
+    $titulo = $_POST['titulo'];
+    $descripcion = $_POST['descripcion'];
+    $id_cliente = $_POST['id_cliente'];
+    $prioridad = $_POST['prioridad'];
+    $id_tecnico = !empty($_POST['id_tecnico']) ? $_POST['id_tecnico'] : NULL;
+    $estado = 'Abierto';
 
     try {
-        $pass_hash = password_hash($password, PASSWORD_BCRYPT);
-        
-        $stmt = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
-        $stmt->bind_param("sssssssi", $username, $email, $pass_hash, $nombres, $apellido_p, $apellido_m, $telefono, $id_rol);
+        $stmt = $conn->prepare("INSERT INTO tickets (titulo, descripcion, prioridad, estado, id_cliente, id_tecnico_asignado) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssii", $titulo, $descripcion, $prioridad, $estado, $id_cliente, $id_tecnico);
         
         if ($stmt->execute()) {
-            $mensaje = "<div class='alert success'>✅ Usuario <b>$username</b> creado correctamente.</div>";
+            $mensaje = "<div class='alert success'>✅ Ticket #{$conn->insert_id} creado correctamente.</div>";
+        } else {
+            $mensaje = "<div class='alert error'>❌ Error al crear ticket.</div>";
         }
     } catch (Exception $e) {
-        if ($conn->errno == 1062) {
-             $mensaje = "<div class='alert error'>⚠️ Error: El nombre de usuario o email ya existe.</div>";
-        } else {
-             $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
-        }
+        $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
     }
 }
 
-/* ============================================
-   📌 CONSULTAS
-============================================ */
-$roles = $conn->query("SELECT * FROM roles")->fetch_all(MYSQLI_ASSOC);
-$sql_usuarios = "SELECT u.*, r.nombre_rol FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol ORDER BY u.id_rol ASC, u.fecha_registro DESC";
-$lista_usuarios = $conn->query($sql_usuarios)->fetch_all(MYSQLI_ASSOC);
+// LÓGICA: CERRAR TICKET
+if (isset($_POST['btn_cerrar_ticket'])) {
+    $id_ticket_cerrar = $_POST['id_ticket_cerrar'];
+    $fecha_cierre = date('Y-m-d H:i:s');
+    
+    $stmt = $conn->prepare("UPDATE tickets SET estado = 'Cerrado', fecha_cierre = ? WHERE id_ticket = ?");
+    $stmt->bind_param("si", $fecha_cierre, $id_ticket_cerrar);
+    
+    if ($stmt->execute()) {
+        $mensaje = "<div class='alert success'>🔒 Ticket #$id_ticket_cerrar cerrado exitosamente.</div>";
+    }
+}
+
+// CONSULTAS
+$sql_clientes = "SELECT c.id_cliente, u.nombres, u.apellido_paterno FROM clientes c JOIN usuarios u ON c.id_usuario = u.id_usuario WHERE u.activo = 1 ORDER BY u.nombres ASC";
+$clientes = $conn->query($sql_clientes)->fetch_all(MYSQLI_ASSOC);
+
+$sql_tecnicos = "SELECT id_usuario, nombres, apellido_paterno FROM usuarios WHERE id_rol IN (1, 3) AND activo = 1";
+$tecnicos = $conn->query($sql_tecnicos)->fetch_all(MYSQLI_ASSOC);
+
+$sql_tickets = "SELECT t.*, uc.nombres AS nom_cliente, uc.apellido_paterno AS ape_cliente, ut.nombres AS nom_tecnico
+                FROM tickets t
+                JOIN clientes c ON t.id_cliente = c.id_cliente
+                JOIN usuarios uc ON c.id_usuario = uc.id_usuario
+                LEFT JOIN usuarios ut ON t.id_tecnico_asignado = ut.id_usuario
+                ORDER BY FIELD(t.estado, 'Abierto', 'En Proceso', 'Resuelto', 'Cerrado'), t.fecha_creacion DESC";
+$lista_tickets = $conn->query($sql_tickets)->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Gestión de Usuarios | KoLine</title>
+<title>Soporte Técnico | KoLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../imagenes/logo.png">
 
 <style>
-/* =========================================
-   🎨 ESTILOS GENERALES
-   ========================================= */
-:root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
+/* ESTILOS IDENTICOS AL DASHBOARD */
+:root { --bg-dark: #020c1b; --accent: #00eaff; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
-
-.wrap { 
-    max-width: 1200px; 
-    margin: 40px auto; 
-    display: grid; 
-    grid-template-columns: 260px 1fr; 
-    gap: 30px; 
-    padding: 20px; 
-    align-items: start; /* Importante para que el sticky funcione bien en el grid */
-}
-
-/* ========== SIDEBAR (CORREGIDO) ========== */
-.sidebar {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    padding: 30px 20px;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
-    
-    /* 🛠️ AQUÍ ESTÁ LA MAGIA DEL STICKY */
-    position: sticky;       
-    top: 20px;              /* Se detiene a 20px del techo */
-    max-height: calc(100vh - 40px); /* Ocupa el alto de la pantalla menos márgenes */
-    overflow-y: auto;       /* Scroll interno si el menú es muy largo */
-    scrollbar-width: none;  /* Ocultar barra de scroll (Firefox) */
-}
-.sidebar::-webkit-scrollbar { display: none; } /* Ocultar barra (Chrome/Safari) */
-
+.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; }
+.sidebar { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); position: sticky; top: 20px; height: fit-content; }
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
 .sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; }
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
-
-/* CONTENIDO PRINCIPAL */
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
-
-/* FORMULARIO */
 .form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
 .input-group { display: flex; flex-direction: column; }
 .input-group label { font-size: 12px; color: var(--accent); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
-input, select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; color: white; font-family: inherit; outline: none; transition: 0.3s; }
+input, select, textarea { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; color: white; font-family: inherit; outline: none; transition: 0.3s; }
 input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
+textarea { resize: vertical; min-height: 80px; }
 .btn-submit { grid-column: 1 / -1; background: var(--accent); color: var(--bg-dark); padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; transition: 0.3s; }
 .btn-submit:hover { background: var(--accent-hover); box-shadow: 0 0 15px rgba(0, 234, 255, 0.5); }
-
-/* TABLA */
 .table-panel { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle; }
-tr:hover td { background: rgba(0, 234, 255, 0.03); }
-
-/* ROLES & BOTONES */
-.badge { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-.rol-admin { background: rgba(255, 51, 102, 0.15); color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.3); }
-.rol-cliente { background: rgba(0, 234, 255, 0.15); color: var(--accent); border: 1px solid rgba(0, 234, 255, 0.3); }
-.rol-soporte { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); }
-
-.btn-action { display: inline-flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 8px; margin-right: 5px; text-decoration: none; font-size: 16px; transition: 0.3s; border: 1px solid transparent; }
-.btn-block { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border-color: rgba(255, 170, 0, 0.3); }
-.btn-block:hover { background: #ffaa00; color: #000; }
-.btn-activate { background: rgba(0, 255, 136, 0.15); color: #00ff88; border-color: rgba(0, 255, 136, 0.3); }
-.btn-activate:hover { background: #00ff88; color: #000; }
-.btn-delete { background: rgba(255, 51, 85, 0.15); color: #ff3355; border-color: rgba(255, 51, 85, 0.3); }
-.btn-delete:hover { background: #ff3355; color: white; }
-
+td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: top; }
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; text-transform: uppercase; font-weight: bold; }
+.estado-abierto { background: rgba(0, 234, 255, 0.15); color: var(--accent); }
+.estado-cerrado { background: rgba(255, 255, 255, 0.05); color: #666; text-decoration: line-through; }
+.prioridad-alta { color: #ff5577; font-weight: bold; }
 .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
-
-@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } .sidebar { position: relative; top: 0; max-height: none; } }
+@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
 
@@ -195,135 +116,92 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
-            <a href="usuarios.php" class="active">👥 Usuarios</a>
             <a href="clientes.php">🛰 Clientes</a>
-            <a href="tickets.php">🎫 Tickets</a>
+            <a href="tickets.php" class="active">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
-            <a href="pagos.php">💰 Pagos</a>
-            <a href="../configuracion.php">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
-            <a href="../index.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
+            <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
         </div>
     </aside>
 
     <main>
         <div class="main-header">
-            <h1>Administración de Usuarios</h1>
+            <h1>Mesa de Ayuda</h1>
         </div>
 
         <?= $mensaje ?>
 
         <div class="form-panel">
-            <h3 style="margin-top:0; color:var(--text-muted); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">Crear Nuevo Usuario (Staff)</h3>
-            <p style="font-size:12px; color:#ffaa00; background:rgba(255,170,0,0.1); padding:10px; border-radius:5px;">
-                ⚠️ Nota: Si deseas crear un cliente con servicio de internet, ve al módulo <b><a href="clientes.php" style="color:#ffaa00;">Clientes</a></b>. Usa este formulario solo para Administradores o Técnicos.
-            </p>
-            
-            <form method="POST" action="">
+            <h3 style="margin-top:0; color:var(--text-muted); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">Nuevo Ticket</h3>
+            <form method="POST">
                 <div class="form-grid">
                     <div class="input-group">
-                        <label>Nombre(s)</label>
-                        <input type="text" name="nombres" required placeholder="Nombre del empleado">
+                        <label>Asunto</label>
+                        <input type="text" name="titulo" required placeholder="Ej: Sin internet">
                     </div>
                     <div class="input-group">
-                        <label>Apellido Paterno</label>
-                        <input type="text" name="apellido_p" required placeholder="Apellido">
-                    </div>
-                    <div class="input-group">
-                        <label>Apellido Materno</label>
-                        <input type="text" name="apellido_m" placeholder="Opcional">
-                    </div>
-                    <div class="input-group">
-                        <label>Rol de Acceso</label>
-                        <select name="id_rol" required>
-                            <?php foreach($roles as $r): ?>
-                                <option value="<?= $r['id_rol'] ?>"><?= $r['nombre_rol'] ?></option>
+                        <label>Cliente</label>
+                        <select name="id_cliente" required>
+                            <option value="">Seleccione...</option>
+                            <?php foreach($clientes as $c): ?>
+                                <option value="<?= $c['id_cliente'] ?>"><?= $c['nombres'] . " " . $c['apellido_paterno'] ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="input-group">
-                        <label>Email</label>
-                        <input type="email" name="email" required placeholder="correo@empresa.com">
+                        <label>Prioridad</label>
+                        <select name="prioridad">
+                            <option value="Baja">🟢 Baja</option>
+                            <option value="Media" selected>🟠 Media</option>
+                            <option value="Alta">🔴 Alta</option>
+                            <option value="Crítica">🔥 Crítica</option>
+                        </select>
                     </div>
                     <div class="input-group">
-                        <label>Teléfono</label>
-                        <input type="tel" name="telefono" placeholder="5511223344">
+                        <label>Técnico</label>
+                        <select name="id_tecnico">
+                            <option value="">-- Sin Asignar --</option>
+                            <?php foreach($tecnicos as $t): ?>
+                                <option value="<?= $t['id_usuario'] ?>"><?= $t['nombres'] ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
-                    <div class="input-group">
-                        <label>Usuario (Login)</label>
-                        <input type="text" name="username" required placeholder="Ej: admin2">
+                    <div class="input-group" style="grid-column: 1/-1;">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" required></textarea>
                     </div>
-                    <div class="input-group">
-                        <label>Contraseña</label>
-                        <input type="password" name="password" required placeholder="******">
-                    </div>
-                    <button type="submit" name="btn_registrar_usuario" class="btn-submit">CREAR USUARIO</button>
+                    <button type="submit" name="btn_crear_ticket" class="btn-submit">ABRIR TICKET</button>
                 </div>
             </form>
         </div>
 
         <div class="table-panel">
-            <h3 style="margin-top:0; color:var(--accent);">Usuarios del Sistema</h3>
+            <h3 style="margin-top:0; color:var(--accent);">Tickets Recientes</h3>
             <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre Completo</th>
-                        <th>Rol</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>ID</th><th>Asunto</th><th>Cliente</th><th>Prioridad</th><th>Estado</th><th>Acción</th></tr></thead>
                 <tbody>
-                    <?php if (count($lista_usuarios) > 0): ?>
-                        <?php foreach($lista_usuarios as $u): ?>
-                        <tr>
-                            <td>#<?= $u['id_usuario'] ?></td>
-                            <td>
-                                <strong style="color:white;"><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></strong><br>
-                                <span style="font-size:12px; color:var(--text-muted);"><?= $u['email'] ?></span>
-                            </td>
-                            <td>
-                                <?php 
-                                    $rol = $u['id_rol'];
-                                    $class = ($rol == 1) ? 'rol-admin' : (($rol == 2) ? 'rol-cliente' : 'rol-soporte');
-                                ?>
-                                <span class="badge <?= $class ?>"><?= $u['nombre_rol'] ?></span>
-                            </td>
-                            <td>
-                                <?php if($u['activo'] == 1): ?>
-                                    <span style="color:#00ff88;">● Activo</span>
-                                <?php else: ?>
-                                    <span style="color:#ff3355;">● Bloqueado</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($u['activo'] == 1): ?>
-                                    <a href="?accion=toggle&id=<?= $u['id_usuario'] ?>" class="btn-action btn-block" title="Bloquear Acceso" onclick="return confirm('¿Bloquear acceso a este usuario?');">
-                                        🔒
-                                    </a>
-                                <?php else: ?>
-                                    <a href="?accion=toggle&id=<?= $u['id_usuario'] ?>" class="btn-action btn-activate" title="Reactivar Acceso">
-                                        🔓
-                                    </a>
-                                <?php endif; ?>
-
-                                <a href="?accion=borrar&id=<?= $u['id_usuario'] ?>" class="btn-action btn-delete" title="Eliminar Definitivamente" onclick="return confirm('⚠ ¿Estás seguro de eliminar este usuario? Esta acción es irreversible.');">
-                                    🗑️
-                                </a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr><td colspan="5" style="text-align:center;">No hay usuarios registrados.</td></tr>
-                    <?php endif; ?>
+                    <?php foreach($lista_tickets as $tk): ?>
+                    <tr style="<?= $tk['estado'] == 'Cerrado' ? 'opacity:0.5;' : '' ?>">
+                        <td>#<?= $tk['id_ticket'] ?></td>
+                        <td><?= $tk['titulo'] ?></td>
+                        <td><?= $tk['nom_cliente'] ?></td>
+                        <td><span class="<?= $tk['prioridad'] == 'Alta' || $tk['prioridad'] == 'Crítica' ? 'prioridad-alta' : '' ?>"><?= $tk['prioridad'] ?></span></td>
+                        <td><span class="badge <?= $tk['estado'] == 'Abierto' ? 'estado-abierto' : 'estado-cerrado' ?>"><?= $tk['estado'] ?></span></td>
+                        <td>
+                            <?php if($tk['estado'] != 'Cerrado'): ?>
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="id_ticket_cerrar" value="<?= $tk['id_ticket'] ?>">
+                                    <button type="submit" name="btn_cerrar_ticket" style="background:none; border:1px solid #444; color:#00ff88; cursor:pointer; padding:2px 5px; border-radius:4px;">✓ Cerrar</button>
+                                </form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
-
     </main>
 </div>
-
 </body>
 </html>
