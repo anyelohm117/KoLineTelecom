@@ -140,7 +140,7 @@
             </p>
             
             <div class="text-center mt-3">
-                <a href="#" class="text-xs text-gray-500 hover:text-koline-primary transition duration-200">
+                <a href="cambiar_password.php" class="text-xs text-gray-500 hover:text-koline-primary transition duration-200">
                     Olvidé mi contraseña
                 </a>
             </div>
