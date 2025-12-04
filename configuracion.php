@@ -1,13 +1,13 @@
 
 <?php
 session_start();
-require '../db_con.php'; 
+require 'db_con.php'; 
 
 /* ============================================
    🔒 SEGURIDAD
 ============================================ */
 if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
-    header("Location: ../index.php"); 
+    header("Location: index.php"); 
     exit();
 }
 
