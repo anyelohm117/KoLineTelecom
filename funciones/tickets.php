@@ -3,12 +3,21 @@ session_start();
 require '../db_con.php'; 
 
 /* ============================================
-   🔒 SEGURIDAD
+   🔒 SEGURIDAD CORREGIDA: ADMIN (1) Y SOPORTE (3)
 ============================================ */
-if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
-    header("Location: ../index.php"); 
+// Permitimos entrar a Admin (1) O Soporte (3)
+if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
+    // Si es un cliente, lo mandamos a su panel
+    if (isset($_SESSION['rol']) && $_SESSION['rol'] == 2) {
+        header("Location: ../cliente_dashboard.php");
+    } else {
+        header("Location: ../index.php");
+    }
     exit();
 }
+
+// Variable para controlar el menú visualmente (Candados)
+$es_admin = ($_SESSION['rol'] == 1); 
 
 $mensaje = "";
 
@@ -55,20 +64,16 @@ if (isset($_POST['btn_cerrar_ticket'])) {
 /* ============================================
    📌 CONSULTAS
 ============================================ */
-// 1. Obtener Clientes (para el select)
-$sql_clientes = "SELECT c.id_cliente, u.nombres, u.apellido_paterno 
-                 FROM clientes c JOIN usuarios u ON c.id_usuario = u.id_usuario 
-                 WHERE u.activo = 1 ORDER BY u.nombres ASC";
+// 1. Obtener Clientes
+$sql_clientes = "SELECT c.id_cliente, u.nombres, u.apellido_paterno FROM clientes c JOIN usuarios u ON c.id_usuario = u.id_usuario WHERE u.activo = 1 ORDER BY u.nombres ASC";
 $clientes = $conn->query($sql_clientes)->fetch_all(MYSQLI_ASSOC);
 
-// 2. Obtener Técnicos (Usuarios rol 1 Admin o 3 Soporte)
+// 2. Obtener Técnicos
 $sql_tecnicos = "SELECT id_usuario, nombres, apellido_paterno FROM usuarios WHERE id_rol IN (1, 3) AND activo = 1";
 $tecnicos = $conn->query($sql_tecnicos)->fetch_all(MYSQLI_ASSOC);
 
-// 3. Obtener Tickets (JOIN con Clientes y Técnicos)
-$sql_tickets = "SELECT t.*, 
-                uc.nombres AS nom_cliente, uc.apellido_paterno AS ape_cliente,
-                ut.nombres AS nom_tecnico
+// 3. Obtener Tickets
+$sql_tickets = "SELECT t.*, uc.nombres AS nom_cliente, uc.apellido_paterno AS ape_cliente, ut.nombres AS nom_tecnico
                 FROM tickets t
                 JOIN clientes c ON t.id_cliente = c.id_cliente
                 JOIN usuarios uc ON c.id_usuario = uc.id_usuario
@@ -84,17 +89,28 @@ $lista_tickets = $conn->query($sql_tickets)->fetch_all(MYSQLI_ASSOC);
 <title>Soporte Técnico | KoLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../imagenes/logo.png">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
-/* Estilos Base (Igual a las otras pantallas) */
+/* Estilos Base */
 :root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
-.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; }
-.sidebar { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); height: fit-content; }
+.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; align-items: start; }
+
+/* SIDEBAR STICKY */
+.sidebar { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: none; }
+.sidebar::-webkit-scrollbar { display: none; }
+
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
-.sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; }
+.sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; font-size: 14px; }
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
+
+/* ESTILO BLOQUEADO */
+.nav-locked { opacity: 0.5; cursor: not-allowed; display: flex; justify-content: space-between; align-items: center; }
+.nav-locked:hover { background: rgba(255, 51, 85, 0.1) !important; color: #ff3355 !important; box-shadow: none !important; }
+
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
 .form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
@@ -142,15 +158,31 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
-            <a href="usuarios.php">👥 Usuarios</a>
+
+            <?php if($es_admin): ?>
+                <a href="usuarios.php">👥 Usuarios</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">👥 Usuarios <span>🔒</span></a>
+            <?php endif; ?>
+
             <a href="clientes.php">🛰 Clientes</a>
             <a href="tickets.php" class="active">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
-            <a href="pagos.php">💰 Pagos</a>
-            <a href="../configuracion.php">⚙ Configuración</a>
+
+            <?php if($es_admin): ?>
+                <a href="pagos.php">💰 Pagos</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">💰 Pagos <span>🔒</span></a>
+            <?php endif; ?>
+
+            <?php if($es_admin): ?>
+                <a href="../configuracion.php">⚙ Configuración</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">⚙ Configuración <span>🔒</span></a>
+            <?php endif; ?>
         </nav>
         <div style="text-align:center; margin-top:30px;">
-            <a href="../index.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
+            <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
         </div>
     </aside>
 
@@ -286,6 +318,21 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
     </main>
 </div>
+
+<script>
+    function noPermiso(e) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Acceso Restringido',
+            text: 'Tu perfil de Soporte Técnico no tiene permisos para acceder a este módulo.',
+            background: '#0a1f35',
+            color: '#fff',
+            confirmButtonColor: '#ff3366',
+            confirmButtonText: 'Entendido'
+        });
+    }
+</script>
 
 </body>
 </html>
