@@ -13,22 +13,21 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
 $mensaje = "";
 
 /* ============================================
-   🛑 LÓGICA: BLOQUEAR / ACTIVAR USUARIO (TOGGLE)
+   🛑 LÓGICA: BLOQUEAR / ACTIVAR / BORRAR
 ============================================ */
 if (isset($_GET['accion']) && isset($_GET['id'])) {
     $id_target = $_GET['id'];
     
-    // Evitar auto-bloqueo
+    // Evitar auto-bloqueo o auto-borrado
     if ($id_target == $_SESSION['id_usuario']) {
         $mensaje = "<div class='alert error'>⛔ No puedes bloquear o eliminar tu propia cuenta mientras estás conectado.</div>";
     } else {
         
-        // 1. BLOQUEAR / ACTIVAR
+        // A. BLOQUEAR / ACTIVAR (TOGGLE)
         if ($_GET['accion'] == 'toggle') {
             try {
-                // Obtenemos estado actual
                 $check = $conn->query("SELECT activo FROM usuarios WHERE id_usuario = $id_target")->fetch_assoc();
-                $nuevo_estado = ($check['activo'] == 1) ? 0 : 1; // Invertir estado
+                $nuevo_estado = ($check['activo'] == 1) ? 0 : 1;
                 
                 $stmt = $conn->prepare("UPDATE usuarios SET activo = ? WHERE id_usuario = ?");
                 $stmt->bind_param("ii", $nuevo_estado, $id_target);
@@ -41,7 +40,7 @@ if (isset($_GET['accion']) && isset($_GET['id'])) {
             }
         }
         
-        // 2. ELIMINAR (BORRAR DE DB)
+        // B. ELIMINAR (BORRAR DE DB)
         elseif ($_GET['accion'] == 'borrar') {
             try {
                 $stmt = $conn->prepare("DELETE FROM usuarios WHERE id_usuario = ?");
@@ -49,7 +48,7 @@ if (isset($_GET['accion']) && isset($_GET['id'])) {
                 $stmt->execute();
                 $mensaje = "<div class='alert success'>🗑️ Usuario eliminado permanentemente.</div>";
             } catch (Exception $e) {
-                // Error 1451: Restricción de llave foránea (Tiene tickets, clientes, etc.)
+                // Error 1451: Integridad Referencial
                 if ($conn->errno == 1451) {
                     $mensaje = "<div class='alert error'>⚠️ No puedes eliminar este usuario: Tiene historial asociado (Tickets, Clientes o Pagos). <br>Mejor usa la opción de 'Bloquear'.</div>";
                 } else {
@@ -108,17 +107,49 @@ $lista_usuarios = $conn->query($sql_usuarios)->fetch_all(MYSQLI_ASSOC);
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <style>
-/* ... (ESTILOS GENERALES IDENTICOS) ... */
+/* =========================================
+   🎨 ESTILOS GENERALES
+   ========================================= */
 :root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
-.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; }
-.sidebar { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); height: fit-content; }
+
+.wrap { 
+    max-width: 1200px; 
+    margin: 40px auto; 
+    display: grid; 
+    grid-template-columns: 260px 1fr; 
+    gap: 30px; 
+    padding: 20px; 
+    align-items: start; /* Importante para que el sticky funcione bien en el grid */
+}
+
+/* ========== SIDEBAR (CORREGIDO) ========== */
+.sidebar {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    padding: 30px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    
+    /* 🛠️ AQUÍ ESTÁ LA MAGIA DEL STICKY */
+    position: sticky;       
+    top: 20px;              /* Se detiene a 20px del techo */
+    max-height: calc(100vh - 40px); /* Ocupa el alto de la pantalla menos márgenes */
+    overflow-y: auto;       /* Scroll interno si el menú es muy largo */
+    scrollbar-width: none;  /* Ocultar barra de scroll (Firefox) */
+}
+.sidebar::-webkit-scrollbar { display: none; } /* Ocultar barra (Chrome/Safari) */
+
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
 .sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; }
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
+
+/* CONTENIDO PRINCIPAL */
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
+
+/* FORMULARIO */
 .form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
 .input-group { display: flex; flex-direction: column; }
@@ -127,43 +158,33 @@ input, select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,
 input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
 .btn-submit { grid-column: 1 / -1; background: var(--accent); color: var(--bg-dark); padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; transition: 0.3s; }
 .btn-submit:hover { background: var(--accent-hover); box-shadow: 0 0 15px rgba(0, 234, 255, 0.5); }
+
+/* TABLA */
 .table-panel { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle; } /* Alineación vertical centrada */
+td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle; }
 tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
-/* ROLES BADGES */
+/* ROLES & BOTONES */
 .badge { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
 .rol-admin { background: rgba(255, 51, 102, 0.15); color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.3); }
 .rol-cliente { background: rgba(0, 234, 255, 0.15); color: var(--accent); border: 1px solid rgba(0, 234, 255, 0.3); }
 .rol-soporte { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); }
 
+.btn-action { display: inline-flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 8px; margin-right: 5px; text-decoration: none; font-size: 16px; transition: 0.3s; border: 1px solid transparent; }
+.btn-block { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border-color: rgba(255, 170, 0, 0.3); }
+.btn-block:hover { background: #ffaa00; color: #000; }
+.btn-activate { background: rgba(0, 255, 136, 0.15); color: #00ff88; border-color: rgba(0, 255, 136, 0.3); }
+.btn-activate:hover { background: #00ff88; color: #000; }
+.btn-delete { background: rgba(255, 51, 85, 0.15); color: #ff3355; border-color: rgba(255, 51, 85, 0.3); }
+.btn-delete:hover { background: #ff3355; color: white; }
+
 .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
 
-/* ESTILOS PARA BOTONES DE ACCIÓN */
-.btn-action {
-    display: inline-flex; justify-content: center; align-items: center;
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    margin-right: 5px;
-    text-decoration: none;
-    font-size: 16px;
-    transition: 0.3s;
-    border: 1px solid transparent;
-}
-.btn-block { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border-color: rgba(255, 170, 0, 0.3); }
-.btn-block:hover { background: #ffaa00; color: #000; }
-
-.btn-activate { background: rgba(0, 255, 136, 0.15); color: #00ff88; border-color: rgba(0, 255, 136, 0.3); }
-.btn-activate:hover { background: #00ff88; color: #000; }
-
-.btn-delete { background: rgba(255, 51, 85, 0.15); color: #ff3355; border-color: rgba(255, 51, 85, 0.3); }
-.btn-delete:hover { background: #ff3355; color: white; }
-
-@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } .sidebar { position: relative; top: 0; max-height: none; } }
 </style>
 </head>
 
@@ -173,13 +194,13 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
     <aside class="sidebar">
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
-            <a href="../index.php">📊 Dashboard</a>
+            <a href="../dashboard.php">📊 Dashboard</a>
             <a href="usuarios.php" class="active">👥 Usuarios</a>
             <a href="clientes.php">🛰 Clientes</a>
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
             <a href="pagos.php">💰 Pagos</a>
-            <a href="configuracion.php">⚙ Configuración</a>
+            <a href="../configuracion.php">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
             <a href="../index.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
@@ -251,7 +272,8 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                         <th>Nombre Completo</th>
                         <th>Rol</th>
                         <th>Estado</th>
-                        <th>Acciones</th> </tr>
+                        <th>Acciones</th>
+                    </tr>
                 </thead>
                 <tbody>
                     <?php if (count($lista_usuarios) > 0): ?>
