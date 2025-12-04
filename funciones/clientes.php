@@ -1,13 +1,18 @@
-
 <?php
 session_start();
 require '../db_con.php'; 
 
 /* ============================================
-   🔒 SEGURIDAD
+   🔒 SEGURIDAD CORREGIDA: ADMIN (1) Y SOPORTE (3)
 ============================================ */
-if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
-    header("Location: ../index.php"); 
+// Permitimos entrar a Admin (1) O Soporte (3)
+if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
+    // Si es un cliente, lo mandamos a su panel
+    if (isset($_SESSION['rol']) && $_SESSION['rol'] == 2) {
+        header("Location: ../cliente_dashboard.php");
+    } else {
+        header("Location: ../index.php");
+    }
     exit();
 }
 
@@ -39,8 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_cliente'
 
     try {
         // A. Insertar Usuario
-        $pass_hash = password_hash($password, PASSWORD_BCRYPT); // Encriptar contraseña
-        $stmt1 = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $pass_hash = password_hash($password, PASSWORD_BCRYPT); 
+        $stmt1 = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
         $stmt1->bind_param("sssssssi", $username, $email, $pass_hash, $nombres, $apellido_p, $apellido_m, $telefono, $rol);
         $stmt1->execute();
         
@@ -56,12 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_cliente'
         $conn->commit();
         $mensaje = "<div class='alert success'>✅ Cliente <b>$nombres</b> registrado y activo.</div>";
 
-    } catch (mysqli_sql_exception $exception) {
+    } catch (Exception $e) { // Cambié mysqli_sql_exception por Exception para capturar todo
         $conn->rollback(); // Deshacer cambios si hay error
-        if ($exception->getCode() == 1062) {
+        if ($conn->errno == 1062) {
              $mensaje = "<div class='alert error'>⚠️ Error: El Usuario, Email o IP ya están registrados.</div>";
         } else {
-             $mensaje = "<div class='alert error'>Error: " . $exception->getMessage() . "</div>";
+             $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
         }
     }
 }
@@ -93,12 +98,20 @@ $lista_clientes = $conn->query($sql_clientes)->fetch_all(MYSQLI_ASSOC);
 /* Reutilizamos los estilos base */
 :root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
-.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; }
-.sidebar { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); height: fit-content; }
+.wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; align-items: start; }
+
+/* SIDEBAR STICKY */
+.sidebar { 
+    background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); 
+    position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: none;
+}
+.sidebar::-webkit-scrollbar { display: none; }
+
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
 .sidebar nav a { color: var(--text-muted); padding: 12px 15px; display: block; text-decoration: none; border-radius: 10px; margin-bottom: 5px; transition: 0.3s; }
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
+
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
 .form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
@@ -111,7 +124,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rg
 .table-panel { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; }
+td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle;}
 tr:hover td { background: rgba(0, 234, 255, 0.03); }
 .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
@@ -125,7 +138,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 .active-dot { height: 10px; width: 10px; background-color: #00ff88; border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 5px #00ff88; }
 .inactive-dot { height: 10px; width: 10px; background-color: #ff3355; border-radius: 50%; display: inline-block; margin-right: 5px; }
 
-@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } .sidebar { position: relative; top: 0; max-height: none; } }
 </style>
 </head>
 
@@ -141,10 +154,10 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
             <a href="pagos.php">💰 Pagos</a>
-            <a href="#">⚙ Configuración</a>
+            <a href="../configuracion.php">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
-            <a href="../index.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
+            <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
         </div>
     </aside>
 
