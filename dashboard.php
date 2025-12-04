@@ -1,6 +1,6 @@
 <?php
 session_start();
-require '../db_con.php'; 
+require 'db_con.php'; 
 
 /* ============================================
    🔒 SEGURIDAD: SOLO ADMIN (Rol 1)
