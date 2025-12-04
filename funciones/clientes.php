@@ -136,9 +136,9 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
-            <a href="#">👥 Usuarios</a>
+            <a href="usuarios.php">👥 Usuarios</a>
             <a href="clientes.php" class="active">🛰 Clientes</a>
-            <a href="#">🎫 Tickets</a>
+            <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
             <a href="pagos.php">💰 Pagos</a>
             <a href="#">⚙ Configuración</a>
