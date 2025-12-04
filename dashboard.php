@@ -336,13 +336,13 @@ tr:hover td {
     </div>
 
     <nav>
-        <a href="#">📊 Dashboard</a>
-        <a href="#">👥 Usuarios</a>
-        <a href="#">🛰 Clientes</a>
-        <a href="#">🎫 Tickets</a>
+        <a href="dashboard.php">📊 Dashboard</a>
+        <a href="funciones/usuarios.php">👥 Usuarios</a>
+        <a href="funciones/clientes.php">🛰 Clientes</a>
+        <a href="funciones/tickets">🎫 Tickets</a>
         <a href="funciones/inventario.php">📦 Inventario</a>
         <a href="funciones/pagos.php">💰 Pagos</a>
-        <a href="#">⚙ Configuración</a>
+        <a href="configuracion.php">⚙ Configuración</a>
     </nav>
 
     <a href="index.php" class="logout">← Cerrar sesión</a>
