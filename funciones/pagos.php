@@ -1,6 +1,6 @@
 <?php
 session_start();
-require 'db_con.php';
+require '../db_con.php';
 
 /* ============================================
    🔒 SEGURIDAD
@@ -199,14 +199,14 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 <div class="wrap">
     
     <aside class="sidebar">
-        <img src="imagenes/logo.png" alt="KoLine">
+        <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
-            <a href="index.php">📊 Dashboard</a>
+            <a href="../index.php">📊 Dashboard</a>
             <a href="#">👥 Usuarios</a>
             <a href="#">🛰 Clientes</a>
             <a href="#">🎫 Tickets</a>
             <a href="#">📦 Inventario</a>
-            <a href="pagos.php" class="active">💰 Pagos</a>
+            <a href="../pagos.php" class="active">💰 Pagos</a>
             <a href="#">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
