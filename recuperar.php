@@ -29,7 +29,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($update->execute()) {
             $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/cambiar_password.php?token=" . $token;
             
-            // MENSAJE CON BOTÓN CLICKABLE DIRECTO
+            // MENSAJE CON BOTÓN CLICKABLE DIRECTO Y CORRECCIÓN DE TEXTO LARGO
             $mensaje = "
                 <div class='flex flex-col gap-3 text-center'>
                     <span class='font-bold text-lg text-green-400'>¡Correo Simulado Exitosamente!</span>
@@ -39,7 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         👉 Restablecer Contraseña
                     </a>
 
-                    <span class='text-[10px] text-gray-500 mt-2'>Si el botón no funciona, copia este link: <br> <span class='select-all'>$link</span></span>
+                    <span class='text-[10px] text-gray-500 mt-2 break-all'>Si el botón no funciona, copia este link: <br> <span class='select-all text-green-500/70'>$link</span></span>
                 </div>
             ";
             $tipo_mensaje = "success";
