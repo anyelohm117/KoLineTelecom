@@ -29,15 +29,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($update->execute()) {
             $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/cambiar_password.php?token=" . $token;
             
-            // Mensaje estilizado para el diseño nuevo
+            // MENSAJE CON BOTÓN CLICKABLE DIRECTO
             $mensaje = "
-                <div class='flex flex-col gap-2'>
-                    <span class='font-bold text-lg'>¡Enlace Generado!</span>
-                    <span class='text-sm opacity-80'>Hola <b>{$usuario['nombres']}</b>, usa este enlace para recuperar tu cuenta:</span>
-                    <div class='bg-black/30 p-3 rounded border border-white/10 mt-2 break-all text-xs font-mono text-koline-primary select-all'>
-                        $link
-                    </div>
-                    <span class='text-xs text-center mt-1 text-green-300 animate-pulse'>Copia y pega el enlace en tu navegador</span>
+                <div class='flex flex-col gap-3 text-center'>
+                    <span class='font-bold text-lg text-green-400'>¡Correo Simulado Exitosamente!</span>
+                    <span class='text-sm text-gray-300'>Hola <b>{$usuario['nombres']}</b>, hemos generado tu enlace de recuperación.</span>
+                    
+                    <a href='$link' class='block w-full py-3 mt-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.4)] transition transform hover:scale-[1.02] uppercase tracking-wide no-underline'>
+                        👉 Restablecer Contraseña
+                    </a>
+
+                    <span class='text-[10px] text-gray-500 mt-2'>Si el botón no funciona, copia este link: <br> <span class='select-all'>$link</span></span>
                 </div>
             ";
             $tipo_mensaje = "success";
@@ -106,24 +108,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
             </div>
-
             <h1 class="text-2xl font-bold tracking-wide">Recuperar Acceso</h1>
-            <p class="text-gray-400 text-sm mt-2">Introduce tu correo y te ayudaremos a restablecer tu contraseña.</p>
+            <?php if(!$mensaje): ?>
+                <p class="text-gray-400 text-sm mt-2">Introduce tu correo y te ayudaremos a restablecer tu contraseña.</p>
+            <?php endif; ?>
         </div>
 
         <?php if($mensaje): ?>
-            <div class="mb-6 p-4 rounded-xl border flex items-start gap-3 text-sm
-                <?php echo ($tipo_mensaje == 'error') ? 'bg-red-500/10 border-red-500/50 text-red-200' : 'bg-green-500/10 border-green-500/50 text-green-100'; ?>">
-                
-                <div class="mt-0.5 text-lg">
-                    <?php echo ($tipo_mensaje == 'error') ? '⚠️' : '✅'; ?>
-                </div>
-                <div class="w-full">
-                    <?= $mensaje ?>
-                </div>
+            <div class="mb-6 p-5 rounded-xl border border-white/10 shadow-lg bg-black/40 backdrop-blur-sm">
+                <?= $mensaje ?>
             </div>
+            
+            <?php if($tipo_mensaje == 'success'): ?>
+                <div class="text-center">
+                    <a href="index.php" class="text-sm text-gray-400 hover:text-white transition">Volver al Login</a>
+                </div>
+            <?php endif; ?>
+
         <?php endif; ?>
 
+        <?php if($tipo_mensaje != 'success'): ?>
         <form method="POST" class="space-y-5">
             <div class="space-y-1">
                 <label class="text-xs text-koline-primary ml-1 font-bold uppercase tracking-wider">Correo Electrónico</label>
@@ -156,6 +160,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 Volver al inicio de sesión
             </a>
         </div>
+        <?php endif; ?>
 
     </div>
 </body>
