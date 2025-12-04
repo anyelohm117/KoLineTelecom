@@ -156,11 +156,11 @@ h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
     <aside class="sidebar">
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
-            <a href="../dashboard.php">📊 Dashboard</a>
-            <a href="funciones/usuarios">👥 Usuarios</a>
-            <a href="funciones/clientes.php">🛰 Clientes</a>
-            <a href="funciones/tickets">🎫 Tickets</a>
-            <a href="funciones/inventario.php">📦 Inventario</a>
+            <a href="/dashboard.php">📊 Dashboard</a>
+            <a href="/funciones/usuarios">👥 Usuarios</a>
+            <a href="/funciones/clientes.php">🛰 Clientes</a>
+            <a href="/funciones/tickets">🎫 Tickets</a>
+            <a href="/funciones/inventario.php">📦 Inventario</a>
             <a href="/funciones/pagos.php">💰 Pagos</a>
             <a href="configuracion.php" class="active">⚙ Configuración</a>
         </nav>
