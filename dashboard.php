@@ -3,22 +3,33 @@ session_start();
 require 'db_con.php';
 
 /* ============================================
-   🔒 SEGURIDAD CORREGIDA
+   🔒 SEGURIDAD ROBUSTA (Admin & Soporte)
 ============================================ */
-// Permitimos entrar a ROL 1 (Admin) y ROL 3 (Soporte)
-if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
+
+// 1. Verificar si existe la sesión
+if (!isset($_SESSION['id_usuario']) || !isset($_SESSION['rol'])) {
+    header("Location: index.php");
+    exit();
+}
+
+// 2. Definir quién puede entrar aquí (1=Admin, 3=Soporte)
+$roles_permitidos = [1, 3];
+
+// 3. Validar permiso
+if (!in_array($_SESSION['rol'], $roles_permitidos)) {
+    // Si no está en la lista permitida...
     
-    // Si es un Cliente (Rol 2), lo mandamos a su dashboard especial
-    if (isset($_SESSION['rol']) && $_SESSION['rol'] == 2) {
+    // ¿Es Cliente (2)? -> Mandar a su dashboard
+    if ($_SESSION['rol'] == 2) {
         header("Location: cliente_dashboard.php");
     } else {
-        // Si no hay sesión o es un rol desconocido, al login
+        // ¿Cualquier otro? -> Mandar al login
         header("Location: index.php");
     }
     exit();
 }
 
-// Variable para saber si es jefe (Admin)
+// Variable para controlar qué mostramos en el HTML
 $es_admin = ($_SESSION['rol'] == 1); 
 
 /* ============================================
