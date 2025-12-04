@@ -118,7 +118,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
             <a href="../index.php">📊 Dashboard</a>
             <a href="usuarios.php" class="active">👥 Usuarios</a>
             <a href="clientes.php">🛰 Clientes</a>
-            <a href="#">🎫 Tickets</a>
+            <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
             <a href="pagos.php">💰 Pagos</a>
             <a href="#">⚙ Configuración</a>
