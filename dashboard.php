@@ -3,20 +3,22 @@ session_start();
 require 'db_con.php';
 
 /* ============================================
-   🔒 SEGURIDAD: SOLO ADMIN (1) Y SOPORTE (3)
-   Los clientes (2) NO deben entrar aquí.
+   🔒 SEGURIDAD CORREGIDA
 ============================================ */
+// Permitimos entrar a ROL 1 (Admin) y ROL 3 (Soporte)
 if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
-    // Si un cliente intenta entrar aquí, lo mandamos a SU dashboard
-    if(isset($_SESSION['rol']) && $_SESSION['rol'] == 2) {
+    
+    // Si es un Cliente (Rol 2), lo mandamos a su dashboard especial
+    if (isset($_SESSION['rol']) && $_SESSION['rol'] == 2) {
         header("Location: cliente_dashboard.php");
     } else {
+        // Si no hay sesión o es un rol desconocido, al login
         header("Location: index.php");
     }
     exit();
 }
 
-// Variable para controlar qué mostramos
+// Variable para saber si es jefe (Admin)
 $es_admin = ($_SESSION['rol'] == 1); 
 
 /* ============================================
@@ -25,22 +27,22 @@ $es_admin = ($_SESSION['rol'] == 1);
 $total_clientes = 0;
 $total_tickets_abiertos = 0;
 $ultimos_tickets = [];
-$total_usuarios = 0; // Solo admin
-$ultimos_usuarios = []; // Solo admin
+$total_usuarios = 0; 
+$ultimos_usuarios = [];
 
 try {
-    // 1. Datos visibles para TODOS (Soporte y Admin)
+    // 1. DATOS VISIBLES PARA TODOS (Soporte y Admin)
     $res = $conn->query("SELECT COUNT(*) FROM usuarios WHERE id_rol = 2 AND activo = 1");
     $total_clientes = $res->fetch_row()[0];
 
     $res = $conn->query("SELECT COUNT(*) FROM tickets WHERE estado = 'Abierto'");
     $total_tickets_abiertos = $res->fetch_row()[0];
     
-    // Lista de tickets recientes (útil para que soporte vea trabajo pendiente)
+    // Tickets recientes
     $sql = "SELECT t.*, u.nombres, u.apellido_paterno FROM tickets t JOIN clientes c ON t.id_cliente = c.id_cliente JOIN usuarios u ON c.id_usuario = u.id_usuario ORDER BY fecha_creacion DESC LIMIT 5";
     $ultimos_tickets = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
 
-    // 2. Datos EXCLUSIVOS para ADMIN (Info sensible de la empresa)
+    // 2. DATOS SOLO PARA ADMIN (Información sensible)
     if ($es_admin) {
         $res = $conn->query("SELECT COUNT(*) FROM usuarios");
         $total_usuarios = $res->fetch_row()[0];
@@ -66,7 +68,7 @@ try {
 
 <style>
 /* =========================================
-   🎨 TUS ESTILOS EXISTENTES
+   🎨 ESTILOS (Cyberpunk / Glass)
    ========================================= */
 :root { --bg-dark: #020c1b; --bg-glow: #0a1f35; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.7); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
