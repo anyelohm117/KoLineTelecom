@@ -10,10 +10,59 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] != 1) {
     exit();
 }
 
-/* ============================================
-   📝 LÓGICA: REGISTRAR NUEVO USUARIO (STAFF)
-============================================ */
 $mensaje = "";
+
+/* ============================================
+   🛑 LÓGICA: BLOQUEAR / ACTIVAR USUARIO (TOGGLE)
+============================================ */
+if (isset($_GET['accion']) && isset($_GET['id'])) {
+    $id_target = $_GET['id'];
+    
+    // Evitar auto-bloqueo
+    if ($id_target == $_SESSION['id_usuario']) {
+        $mensaje = "<div class='alert error'>⛔ No puedes bloquear o eliminar tu propia cuenta mientras estás conectado.</div>";
+    } else {
+        
+        // 1. BLOQUEAR / ACTIVAR
+        if ($_GET['accion'] == 'toggle') {
+            try {
+                // Obtenemos estado actual
+                $check = $conn->query("SELECT activo FROM usuarios WHERE id_usuario = $id_target")->fetch_assoc();
+                $nuevo_estado = ($check['activo'] == 1) ? 0 : 1; // Invertir estado
+                
+                $stmt = $conn->prepare("UPDATE usuarios SET activo = ? WHERE id_usuario = ?");
+                $stmt->bind_param("ii", $nuevo_estado, $id_target);
+                $stmt->execute();
+                
+                $estado_txt = ($nuevo_estado == 1) ? "Reactivado" : "Bloqueado";
+                $mensaje = "<div class='alert success'>🔄 Usuario $estado_txt correctamente.</div>";
+            } catch (Exception $e) {
+                $mensaje = "<div class='alert error'>Error al cambiar estado.</div>";
+            }
+        }
+        
+        // 2. ELIMINAR (BORRAR DE DB)
+        elseif ($_GET['accion'] == 'borrar') {
+            try {
+                $stmt = $conn->prepare("DELETE FROM usuarios WHERE id_usuario = ?");
+                $stmt->bind_param("i", $id_target);
+                $stmt->execute();
+                $mensaje = "<div class='alert success'>🗑️ Usuario eliminado permanentemente.</div>";
+            } catch (Exception $e) {
+                // Error 1451: Restricción de llave foránea (Tiene tickets, clientes, etc.)
+                if ($conn->errno == 1451) {
+                    $mensaje = "<div class='alert error'>⚠️ No puedes eliminar este usuario: Tiene historial asociado (Tickets, Clientes o Pagos). <br>Mejor usa la opción de 'Bloquear'.</div>";
+                } else {
+                    $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
+                }
+            }
+        }
+    }
+}
+
+/* ============================================
+   📝 LÓGICA: REGISTRAR NUEVO USUARIO
+============================================ */
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'])) {
     $nombres = trim($_POST['nombres']);
     $apellido_p = trim($_POST['apellido_p']);
@@ -25,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'
     $id_rol = $_POST['id_rol'];
 
     try {
-        // Encriptar contraseña
         $pass_hash = password_hash($password, PASSWORD_BCRYPT);
         
         $stmt = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
@@ -33,8 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'
         
         if ($stmt->execute()) {
             $mensaje = "<div class='alert success'>✅ Usuario <b>$username</b> creado correctamente.</div>";
-        } else {
-            $mensaje = "<div class='alert error'>❌ Error al crear usuario.</div>";
         }
     } catch (Exception $e) {
         if ($conn->errno == 1062) {
@@ -48,14 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'
 /* ============================================
    📌 CONSULTAS
 ============================================ */
-// 1. Obtener Roles para el select
 $roles = $conn->query("SELECT * FROM roles")->fetch_all(MYSQLI_ASSOC);
-
-// 2. Obtener Lista de Usuarios con su Rol
-$sql_usuarios = "SELECT u.*, r.nombre_rol 
-                 FROM usuarios u 
-                 JOIN roles r ON u.id_rol = r.id_rol 
-                 ORDER BY u.id_rol ASC, u.fecha_registro DESC";
+$sql_usuarios = "SELECT u.*, r.nombre_rol FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol ORDER BY u.id_rol ASC, u.fecha_registro DESC";
 $lista_usuarios = $conn->query($sql_usuarios)->fetch_all(MYSQLI_ASSOC);
 ?>
 
@@ -68,9 +108,7 @@ $lista_usuarios = $conn->query($sql_usuarios)->fetch_all(MYSQLI_ASSOC);
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <style>
-/* =========================================
-   🎨 ESTILOS (Idénticos al resto)
-   ========================================= */
+/* ... (ESTILOS GENERALES IDENTICOS) ... */
 :root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
 .wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; }
@@ -92,7 +130,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rg
 .table-panel { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; }
+td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle; } /* Alineación vertical centrada */
 tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
 /* ROLES BADGES */
@@ -104,6 +142,26 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
+
+/* ESTILOS PARA BOTONES DE ACCIÓN */
+.btn-action {
+    display: inline-flex; justify-content: center; align-items: center;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    margin-right: 5px;
+    text-decoration: none;
+    font-size: 16px;
+    transition: 0.3s;
+    border: 1px solid transparent;
+}
+.btn-block { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border-color: rgba(255, 170, 0, 0.3); }
+.btn-block:hover { background: #ffaa00; color: #000; }
+
+.btn-activate { background: rgba(0, 255, 136, 0.15); color: #00ff88; border-color: rgba(0, 255, 136, 0.3); }
+.btn-activate:hover { background: #00ff88; color: #000; }
+
+.btn-delete { background: rgba(255, 51, 85, 0.15); color: #ff3355; border-color: rgba(255, 51, 85, 0.3); }
+.btn-delete:hover { background: #ff3355; color: white; }
 
 @media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } }
 </style>
@@ -121,7 +179,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
             <a href="pagos.php">💰 Pagos</a>
-            <a href="#">⚙ Configuración</a>
+            <a href="configuracion.php">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
             <a href="../index.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
@@ -143,7 +201,6 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
             
             <form method="POST" action="">
                 <div class="form-grid">
-                    
                     <div class="input-group">
                         <label>Nombre(s)</label>
                         <input type="text" name="nombres" required placeholder="Nombre del empleado">
@@ -164,7 +221,6 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                             <?php endforeach; ?>
                         </select>
                     </div>
-
                     <div class="input-group">
                         <label>Email</label>
                         <input type="email" name="email" required placeholder="correo@empresa.com">
@@ -173,7 +229,6 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                         <label>Teléfono</label>
                         <input type="tel" name="telefono" placeholder="5511223344">
                     </div>
-
                     <div class="input-group">
                         <label>Usuario (Login)</label>
                         <input type="text" name="username" required placeholder="Ej: admin2">
@@ -182,7 +237,6 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                         <label>Contraseña</label>
                         <input type="password" name="password" required placeholder="******">
                     </div>
-
                     <button type="submit" name="btn_registrar_usuario" class="btn-submit">CREAR USUARIO</button>
                 </div>
             </form>
@@ -195,11 +249,9 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                     <tr>
                         <th>ID</th>
                         <th>Nombre Completo</th>
-                        <th>Usuario / Email</th>
                         <th>Rol</th>
-                        <th>Fecha Registro</th>
                         <th>Estado</th>
-                    </tr>
+                        <th>Acciones</th> </tr>
                 </thead>
                 <tbody>
                     <?php if (count($lista_usuarios) > 0): ?>
@@ -207,24 +259,16 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                         <tr>
                             <td>#<?= $u['id_usuario'] ?></td>
                             <td>
-                                <strong style="color:white;"><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></strong>
-                                <br><small style="color:var(--text-muted);"><?= $u['telefono'] ?></small>
-                            </td>
-                            <td>
-                                <span style="color:var(--accent);"><?= $u['username'] ?></span><br>
-                                <span style="font-size:12px;"><?= $u['email'] ?></span>
+                                <strong style="color:white;"><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></strong><br>
+                                <span style="font-size:12px; color:var(--text-muted);"><?= $u['email'] ?></span>
                             </td>
                             <td>
                                 <?php 
                                     $rol = $u['id_rol'];
-                                    $class = '';
-                                    if ($rol == 1) $class = 'rol-admin';
-                                    elseif ($rol == 2) $class = 'rol-cliente';
-                                    else $class = 'rol-soporte';
+                                    $class = ($rol == 1) ? 'rol-admin' : (($rol == 2) ? 'rol-cliente' : 'rol-soporte');
                                 ?>
                                 <span class="badge <?= $class ?>"><?= $u['nombre_rol'] ?></span>
                             </td>
-                            <td><?= date("d/m/Y", strtotime($u['fecha_registro'])) ?></td>
                             <td>
                                 <?php if($u['activo'] == 1): ?>
                                     <span style="color:#00ff88;">● Activo</span>
@@ -232,10 +276,25 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
                                     <span style="color:#ff3355;">● Bloqueado</span>
                                 <?php endif; ?>
                             </td>
+                            <td>
+                                <?php if ($u['activo'] == 1): ?>
+                                    <a href="?accion=toggle&id=<?= $u['id_usuario'] ?>" class="btn-action btn-block" title="Bloquear Acceso" onclick="return confirm('¿Bloquear acceso a este usuario?');">
+                                        🔒
+                                    </a>
+                                <?php else: ?>
+                                    <a href="?accion=toggle&id=<?= $u['id_usuario'] ?>" class="btn-action btn-activate" title="Reactivar Acceso">
+                                        🔓
+                                    </a>
+                                <?php endif; ?>
+
+                                <a href="?accion=borrar&id=<?= $u['id_usuario'] ?>" class="btn-action btn-delete" title="Eliminar Definitivamente" onclick="return confirm('⚠ ¿Estás seguro de eliminar este usuario? Esta acción es irreversible.');">
+                                    🗑️
+                                </a>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="6" style="text-align:center;">No hay usuarios registrados.</td></tr>
+                        <tr><td colspan="5" style="text-align:center;">No hay usuarios registrados.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
