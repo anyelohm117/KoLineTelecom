@@ -201,7 +201,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
     <aside class="sidebar">
         <img src="../imagenes/logo.png" alt="KoLine">
         <nav>
-            <a href="../index.php">📊 Dashboard</a>
+            <a href="../dashboard.php">📊 Dashboard</a>
             <a href="#">👥 Usuarios</a>
             <a href="#">🛰 Clientes</a>
             <a href="#">🎫 Tickets</a>
