@@ -3,7 +3,7 @@ session_start();
 require '../db_con.php'; 
 
 /* ============================================
-   🔒 SEGURIDAD CORREGIDA: ADMIN (1) Y SOPORTE (3)
+   🔒 SEGURIDAD: ADMIN (1) Y SOPORTE (3)
 ============================================ */
 if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
     // Si es un cliente, lo mandamos a su panel
@@ -134,7 +134,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
 
-@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } .sidebar { position: relative; top: 0; max-height: none; } }
 </style>
 </head>
 
@@ -154,6 +154,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
             <a href="clientes.php">🛰 Clientes</a>
             <a href="tickets.php">🎫 Tickets</a>
+            
             <a href="inventario.php" class="active">📦 Inventario</a>
 
             <?php if($es_admin): ?>
