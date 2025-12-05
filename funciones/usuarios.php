@@ -5,11 +5,13 @@ require '../db_con.php';
 /* ============================================
    🔒 SEGURIDAD: SOLO ADMIN (Rol 1)
 ============================================ */
+// 1. Si no hay sesión, al login
 if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../index.php"); 
     exit();
 }
 
+// 2. Si hay sesión pero NO es admin (Ej: es Soporte Rol 3)
 if ($_SESSION['rol'] != 1) {
     echo "<script>
             alert('⛔ ACCESO DENEGADO: No tienes permisos de Administrador para ver el módulo de Usuarios.');
@@ -18,7 +20,7 @@ if ($_SESSION['rol'] != 1) {
     exit();
 }
 
-// Variable para controlar el menú visualmente
+// Variable para la lógica visual del menú
 $es_admin = true;
 $mensaje = "";
 
@@ -31,19 +33,24 @@ if (isset($_GET['accion']) && isset($_GET['id'])) {
     if ($id_target == $_SESSION['id_usuario']) {
         $mensaje = "<div class='alert error'>⛔ No puedes bloquear o eliminar tu propia cuenta.</div>";
     } else {
+        // A. BLOQUEAR / ACTIVAR
         if ($_GET['accion'] == 'toggle') {
             try {
                 $check = $conn->query("SELECT activo FROM usuarios WHERE id_usuario = $id_target")->fetch_assoc();
                 $nuevo_estado = ($check['activo'] == 1) ? 0 : 1;
+                
                 $stmt = $conn->prepare("UPDATE usuarios SET activo = ? WHERE id_usuario = ?");
                 $stmt->bind_param("ii", $nuevo_estado, $id_target);
                 $stmt->execute();
+                
                 $estado_txt = ($nuevo_estado == 1) ? "Reactivado" : "Bloqueado";
                 $mensaje = "<div class='alert success'>🔄 Usuario $estado_txt correctamente.</div>";
             } catch (Exception $e) {
                 $mensaje = "<div class='alert error'>Error al cambiar estado.</div>";
             }
-        } elseif ($_GET['accion'] == 'borrar') {
+        }
+        // B. ELIMINAR
+        elseif ($_GET['accion'] == 'borrar') {
             try {
                 $stmt = $conn->prepare("DELETE FROM usuarios WHERE id_usuario = ?");
                 $stmt->bind_param("i", $id_target);
@@ -75,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'
 
     try {
         $pass_hash = password_hash($password, PASSWORD_BCRYPT);
+        
         $stmt = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
         $stmt->bind_param("sssssssi", $username, $email, $pass_hash, $nombres, $apellido_p, $apellido_m, $telefono, $id_rol);
         
@@ -180,27 +188,14 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
 
-            <?php if($es_admin): ?>
-                <a href="usuarios.php" class="active">👥 Usuarios</a>
-            <?php else: ?>
-                <a href="#" class="nav-locked" onclick="noPermiso(event)">👥 Usuarios <span>🔒</span></a>
-            <?php endif; ?>
+            <a href="usuarios.php" class="active">👥 Usuarios</a>
 
             <a href="clientes.php">🛰 Clientes</a>
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
 
-            <?php if($es_admin): ?>
-                <a href="pagos.php">💰 Pagos</a>
-            <?php else: ?>
-                <a href="#" class="nav-locked" onclick="noPermiso(event)">💰 Pagos <span>🔒</span></a>
-            <?php endif; ?>
-
-            <?php if($es_admin): ?>
-                <a href="../configuracion.php">⚙ Configuración</a>
-            <?php else: ?>
-                <a href="#" class="nav-locked" onclick="noPermiso(event)">⚙ Configuración <span>🔒</span></a>
-            <?php endif; ?>
+            <a href="pagos.php">💰 Pagos</a>
+            <a href="../configuracion.php">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
             <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
