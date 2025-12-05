@@ -93,12 +93,9 @@ $lista_tickets = $conn->query($sql_tickets)->fetch_all(MYSQLI_ASSOC);
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
-/* =========================================
-   🎨 ESTILOS GENERALES
-   ========================================= */
+/* Estilos Base */
 :root { --bg-dark: #020c1b; --accent: #00eaff; --accent-hover: #00cce6; --glass-bg: rgba(13, 25, 40, 0.85); --glass-border: rgba(0, 234, 255, 0.15); --text-main: #ffffff; --text-muted: #8899a6; }
 body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at top center, #0f3460 0%, var(--bg-dark) 80%); background-color: var(--bg-dark); background-attachment: fixed; margin: 0; color: var(--text-main); min-height: 100vh; }
-
 .wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; align-items: start; }
 
 /* SIDEBAR STICKY */
@@ -113,11 +110,16 @@ body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
 
+/* User Box Sidebar */
+.user-box { text-align: center; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; }
+.user-icon { width: 70px; height: 70px; margin: 0 auto 15px; background: rgba(0, 234, 255, 0.05); border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: var(--accent); box-shadow: 0 0 15px rgba(0, 234, 255, 0.2); }
+.user-name { font-size: 16px; font-weight: 600; margin: 0; }
+.user-role { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); background: rgba(0, 234, 255, 0.1); padding: 4px 8px; border-radius: 4px; font-weight: bold; margin-top: 5px; display: inline-block;}
+
 /* ESTILO BLOQUEADO */
 .nav-locked { opacity: 0.5; cursor: not-allowed; display: flex; justify-content: space-between; align-items: center; }
 .nav-locked:hover { background: rgba(255, 51, 85, 0.1) !important; color: #ff3355 !important; box-shadow: none !important; }
 
-/* MAIN CONTENT */
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
 .form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
@@ -154,7 +156,7 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
 
-@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } .sidebar { position: relative; top: 0; max-height: none; } }
+@media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
 
@@ -162,8 +164,16 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 <div class="wrap">
     
     <aside class="sidebar">
-        <img src="../imagenes/logo.png" alt="KoLine">
-        
+        <img src="../imagenes/logo.png" alt="KoLine Logo">
+
+        <div class="user-box">
+            <div class="user-icon"><?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?></div>
+            <p class="user-name"><?= $_SESSION['nombre_usuario']; ?></p>
+            <span class="user-role">
+                <?= $es_admin ? 'ADMINISTRADOR' : 'SOPORTE TÉCNICO' ?>
+            </span>
+        </div>
+
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
 
