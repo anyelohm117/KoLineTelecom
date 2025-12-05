@@ -21,7 +21,7 @@ if ($_SESSION['rol'] != 1) {
     exit();
 }
 
-// Como SOLO entra Admin, forzamos esta variable para que el menú se dibuje bien (sin candados)
+// Como SOLO entra Admin, definimos esto para la lógica visual
 $es_admin = true;
 $mensaje = "";
 
@@ -185,36 +185,18 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
     
     <aside class="sidebar">
         <img src="../imagenes/logo.png" alt="KoLine">
-        <div class="user-box">
-            <div class="user-icon"><?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?></div>
-            <p class="user-name"><?= $_SESSION['nombre_usuario']; ?></p>
-            <span class="user-role">ADMINISTRADOR</span>
-        </div>
-
+        
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
 
-            <?php if($es_admin): ?>
-                <a href="usuarios.php" class="active">👥 Usuarios</a>
-            <?php else: ?>
-                <a href="#" class="nav-locked" onclick="noPermiso(event)">👥 Usuarios <span>🔒</span></a>
-            <?php endif; ?>
+            <a href="usuarios.php" class="active">👥 Usuarios</a>
 
             <a href="clientes.php">🛰 Clientes</a>
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
 
-            <?php if($es_admin): ?>
-                <a href="pagos.php">💰 Pagos</a>
-            <?php else: ?>
-                <a href="#" class="nav-locked" onclick="noPermiso(event)">💰 Pagos <span>🔒</span></a>
-            <?php endif; ?>
-
-            <?php if($es_admin): ?>
-                <a href="../configuracion.php">⚙ Configuración</a>
-            <?php else: ?>
-                <a href="#" class="nav-locked" onclick="noPermiso(event)">⚙ Configuración <span>🔒</span></a>
-            <?php endif; ?>
+            <a href="pagos.php">💰 Pagos</a>
+            <a href="../configuracion.php">⚙ Configuración</a>
         </nav>
         <div style="text-align:center; margin-top:30px;">
             <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
