@@ -3,7 +3,7 @@ session_start();
 require '../db_con.php'; 
 
 /* ============================================
-   🔒 SEGURIDAD CORREGIDA: ADMIN (1) Y SOPORTE (3)
+   🔒 SEGURIDAD: ADMIN (1) Y SOPORTE (3)
 ============================================ */
 // Permitimos entrar a Admin (1) O Soporte (3)
 if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
@@ -16,7 +16,7 @@ if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'
     exit();
 }
 
-// Variable para controlar el menú visualmente (Candados)
+// Variable para controlar el menú visualmente
 $es_admin = ($_SESSION['rol'] == 1); 
 
 $mensaje = "";
@@ -99,7 +99,10 @@ body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at
 .wrap { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 260px 1fr; gap: 30px; padding: 20px; align-items: start; }
 
 /* SIDEBAR STICKY */
-.sidebar { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: none; }
+.sidebar { 
+    background: var(--glass-bg); backdrop-filter: blur(12px); padding: 30px 20px; border-radius: 20px; border: 1px solid var(--glass-border); 
+    position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: none;
+}
 .sidebar::-webkit-scrollbar { display: none; }
 
 .sidebar img { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 5px rgba(0,234,255,0.3)); }
@@ -166,7 +169,9 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
             <?php endif; ?>
 
             <a href="clientes.php">🛰 Clientes</a>
+            
             <a href="tickets.php" class="active">🎫 Tickets</a>
+            
             <a href="inventario.php">📦 Inventario</a>
 
             <?php if($es_admin): ?>
