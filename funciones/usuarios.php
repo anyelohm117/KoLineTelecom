@@ -20,7 +20,7 @@ if ($_SESSION['rol'] != 1) {
     exit();
 }
 
-// Variable para la lógica visual del menú
+// Variable para la lógica visual
 $es_admin = true;
 $mensaje = "";
 
@@ -137,6 +137,12 @@ body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
 
+/* User Box Sidebar */
+.user-box { text-align: center; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; }
+.user-icon { width: 70px; height: 70px; margin: 0 auto 15px; background: rgba(0, 234, 255, 0.05); border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: var(--accent); box-shadow: 0 0 15px rgba(0, 234, 255, 0.2); }
+.user-name { font-size: 16px; font-weight: 600; margin: 0; }
+.user-role { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); background: rgba(0, 234, 255, 0.1); padding: 4px 8px; border-radius: 4px; font-weight: bold; margin-top: 5px; display: inline-block;}
+
 /* ESTILO BLOQUEADO */
 .nav-locked { opacity: 0.5; cursor: not-allowed; display: flex; justify-content: space-between; align-items: center; }
 .nav-locked:hover { background: rgba(255, 51, 85, 0.1) !important; color: #ff3355 !important; box-shadow: none !important; }
@@ -185,6 +191,12 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
     <aside class="sidebar">
         <img src="../imagenes/logo.png" alt="KoLine">
         
+        <div class="user-box">
+            <div class="user-icon"><?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?></div>
+            <p class="user-name"><?= $_SESSION['nombre_usuario']; ?></p>
+            <span class="user-role">ADMINISTRADOR</span>
+        </div>
+
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
 
@@ -319,21 +331,6 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
     </main>
 </div>
-
-<script>
-    function noPermiso(e) {
-        e.preventDefault();
-        Swal.fire({
-            icon: 'error',
-            title: 'Acceso Restringido',
-            text: 'Tu perfil de Soporte Técnico no tiene permisos para acceder a este módulo.',
-            background: '#0a1f35',
-            color: '#fff',
-            confirmButtonColor: '#ff3366',
-            confirmButtonText: 'Entendido'
-        });
-    }
-</script>
 
 </body>
 </html>
