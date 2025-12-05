@@ -3,75 +3,29 @@ session_start();
 require '../db_con.php'; 
 
 /* ============================================
-   🔒 SEGURIDAD: SOLO ADMIN (Rol 1)
+   🔒 SEGURIDAD: ADMIN (1) Y SOPORTE (3)
 ============================================ */
-// 1. Si no hay sesión, al login
-if (!isset($_SESSION['id_usuario'])) {
-    header("Location: ../index.php"); 
+// Permitimos entrar a Admin (1) O Soporte (3)
+if (!isset($_SESSION['id_usuario']) || ($_SESSION['rol'] != 1 && $_SESSION['rol'] != 3)) {
+    // Si es un cliente, lo mandamos a su panel
+    if (isset($_SESSION['rol']) && $_SESSION['rol'] == 2) {
+        header("Location: ../cliente_dashboard.php");
+    } else {
+        header("Location: ../index.php");
+    }
     exit();
 }
 
-// 2. Si hay sesión pero NO es admin (Ej: es Soporte Rol 3)
-// El soporte NO puede ver usuarios, lo regresamos al Dashboard.
-if ($_SESSION['rol'] != 1) {
-    echo "<script>
-            alert('⛔ ACCESO DENEGADO: No tienes permisos de Administrador para ver el módulo de Usuarios.');
-            window.location.href='../dashboard.php';
-          </script>";
-    exit();
-}
+// Variable para controlar el menú visualmente
+$es_admin = ($_SESSION['rol'] == 1); 
 
-// Como SOLO entra Admin, definimos esto para la lógica visual (aunque siempre será true aquí)
-$es_admin = true;
+/* ============================================
+   📝 LÓGICA: REGISTRAR NUEVO CLIENTE (DOBLE INSERT)
+============================================ */
 $mensaje = "";
 
-/* ============================================
-   🛑 LÓGICA: BLOQUEAR / ACTIVAR / BORRAR
-============================================ */
-if (isset($_GET['accion']) && isset($_GET['id'])) {
-    $id_target = $_GET['id'];
-    
-    if ($id_target == $_SESSION['id_usuario']) {
-        $mensaje = "<div class='alert error'>⛔ No puedes bloquear o eliminar tu propia cuenta.</div>";
-    } else {
-        // A. BLOQUEAR / ACTIVAR
-        if ($_GET['accion'] == 'toggle') {
-            try {
-                $check = $conn->query("SELECT activo FROM usuarios WHERE id_usuario = $id_target")->fetch_assoc();
-                $nuevo_estado = ($check['activo'] == 1) ? 0 : 1;
-                
-                $stmt = $conn->prepare("UPDATE usuarios SET activo = ? WHERE id_usuario = ?");
-                $stmt->bind_param("ii", $nuevo_estado, $id_target);
-                $stmt->execute();
-                
-                $estado_txt = ($nuevo_estado == 1) ? "Reactivado" : "Bloqueado";
-                $mensaje = "<div class='alert success'>🔄 Usuario $estado_txt correctamente.</div>";
-            } catch (Exception $e) {
-                $mensaje = "<div class='alert error'>Error al cambiar estado.</div>";
-            }
-        }
-        // B. ELIMINAR
-        elseif ($_GET['accion'] == 'borrar') {
-            try {
-                $stmt = $conn->prepare("DELETE FROM usuarios WHERE id_usuario = ?");
-                $stmt->bind_param("i", $id_target);
-                $stmt->execute();
-                $mensaje = "<div class='alert success'>🗑️ Usuario eliminado permanentemente.</div>";
-            } catch (Exception $e) {
-                if ($conn->errno == 1451) {
-                    $mensaje = "<div class='alert error'>⚠️ No puedes eliminar este usuario porque tiene historial. Mejor bloquéalo.</div>";
-                } else {
-                    $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
-                }
-            }
-        }
-    }
-}
-
-/* ============================================
-   📝 LÓGICA: REGISTRAR NUEVO USUARIO
-============================================ */
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_cliente'])) {
+    // 1. Datos Personales (Tabla usuarios)
     $nombres = trim($_POST['nombres']);
     $apellido_p = trim($_POST['apellido_p']);
     $apellido_m = trim($_POST['apellido_m']);
@@ -79,20 +33,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'
     $email = trim($_POST['email']);
     $username = trim($_POST['username']);
     $password = $_POST['password'];
-    $id_rol = $_POST['id_rol'];
+    $rol = 2; // Rol 2 = Cliente
+
+    // 2. Datos Técnicos (Tabla clientes)
+    $direccion = trim($_POST['direccion']);
+    $coordenadas = trim($_POST['coordenadas']);
+    $ip = trim($_POST['ip']);
+    $id_plan = $_POST['id_plan'];
+    $fecha_instalacion = $_POST['fecha_instalacion'];
+
+    // Iniciar Transacción (Todo o nada)
+    $conn->begin_transaction();
 
     try {
-        $pass_hash = password_hash($password, PASSWORD_BCRYPT);
+        // A. Insertar Usuario
+        $pass_hash = password_hash($password, PASSWORD_BCRYPT); 
+        $stmt1 = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+        $stmt1->bind_param("sssssssi", $username, $email, $pass_hash, $nombres, $apellido_p, $apellido_m, $telefono, $rol);
+        $stmt1->execute();
         
-        $stmt = $conn->prepare("INSERT INTO usuarios (username, email, password_hash, nombres, apellido_paterno, apellido_materno, telefono, id_rol, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
-        $stmt->bind_param("sssssssi", $username, $email, $pass_hash, $nombres, $apellido_p, $apellido_m, $telefono, $id_rol);
-        
-        if ($stmt->execute()) {
-            $mensaje = "<div class='alert success'>✅ Usuario <b>$username</b> creado correctamente.</div>";
-        }
+        // Obtener el ID del usuario recién creado
+        $id_nuevo_usuario = $conn->insert_id;
+
+        // B. Insertar Cliente (Vinculado al ID anterior)
+        $stmt2 = $conn->prepare("INSERT INTO clientes (id_usuario, direccion_instalacion, coordenadas_gps, ip_asignada, id_plan, fecha_instalacion) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt2->bind_param("isssis", $id_nuevo_usuario, $direccion, $coordenadas, $ip, $id_plan, $fecha_instalacion);
+        $stmt2->execute();
+
+        // Si todo salió bien, confirmamos cambios
+        $conn->commit();
+        $mensaje = "<div class='alert success'>✅ Cliente <b>$nombres</b> registrado y activo.</div>";
+
     } catch (Exception $e) {
+        $conn->rollback(); // Deshacer cambios si hay error
         if ($conn->errno == 1062) {
-             $mensaje = "<div class='alert error'>⚠️ Error: El usuario o email ya existe.</div>";
+             $mensaje = "<div class='alert error'>⚠️ Error: El Usuario, Email o IP ya están registrados.</div>";
         } else {
              $mensaje = "<div class='alert error'>Error: " . $e->getMessage() . "</div>";
         }
@@ -102,16 +77,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_registrar_usuario'
 /* ============================================
    📌 CONSULTAS
 ============================================ */
-$roles = $conn->query("SELECT * FROM roles")->fetch_all(MYSQLI_ASSOC);
-$sql_usuarios = "SELECT u.*, r.nombre_rol FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol ORDER BY u.id_rol ASC, u.fecha_registro DESC";
-$lista_usuarios = $conn->query($sql_usuarios)->fetch_all(MYSQLI_ASSOC);
+// Obtener Planes para el Select
+$planes = $conn->query("SELECT * FROM planes_internet")->fetch_all(MYSQLI_ASSOC);
+
+// Obtener Lista de Clientes Completa
+$sql_clientes = "SELECT c.*, u.nombres, u.apellido_paterno, u.telefono, u.email, u.activo, p.nombre_plan, p.velocidad_mbps 
+                 FROM clientes c
+                 JOIN usuarios u ON c.id_usuario = u.id_usuario
+                 JOIN planes_internet p ON c.id_plan = p.id_plan
+                 ORDER BY u.fecha_registro DESC";
+$lista_clientes = $conn->query($sql_clientes)->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Gestión de Usuarios | KoLine</title>
+<title>Gestión de Clientes | KoLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="../imagenes/logo.png">
@@ -138,19 +120,14 @@ body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at
 .sidebar nav a:hover { background: var(--accent); color: var(--bg-dark); font-weight: 600; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); }
 .sidebar nav a.active { background: rgba(0, 234, 255, 0.1); color: var(--accent); border: 1px solid var(--accent); }
 
-.user-box { text-align: center; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; }
-.user-icon { width: 70px; height: 70px; margin: 0 auto 15px; background: rgba(0, 234, 255, 0.05); border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: var(--accent); box-shadow: 0 0 15px rgba(0, 234, 255, 0.2); }
-.user-name { font-size: 16px; font-weight: 600; margin: 0; }
-.user-role { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); background: rgba(0, 234, 255, 0.1); padding: 4px 8px; border-radius: 4px; font-weight: bold; margin-top: 5px; display: inline-block;}
-
 /* ESTILO BLOQUEADO */
 .nav-locked { opacity: 0.5; cursor: not-allowed; display: flex; justify-content: space-between; align-items: center; }
 .nav-locked:hover { background: rgba(255, 51, 85, 0.1) !important; color: #ff3355 !important; box-shadow: none !important; }
 
+/* MAIN CONTENT */
 .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 h1 { margin: 0; text-shadow: 0 0 20px rgba(0, 234, 255, 0.1); }
 .form-panel { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); backdrop-filter: blur(10px); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 30px; }
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
 .input-group { display: flex; flex-direction: column; }
 .input-group label { font-size: 12px; color: var(--accent); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
 input, select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; color: white; font-family: inherit; outline: none; transition: 0.3s; }
@@ -160,26 +137,25 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rg
 .table-panel { background: var(--glass-bg); backdrop-filter: blur(12px); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle; }
+td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e0e0; vertical-align: middle;}
 tr:hover td { background: rgba(0, 234, 255, 0.03); }
-
-/* BADGES & BOTONES */
-.badge { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-.rol-admin { background: rgba(255, 51, 102, 0.15); color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.3); }
-.rol-cliente { background: rgba(0, 234, 255, 0.15); color: var(--accent); border: 1px solid rgba(0, 234, 255, 0.3); }
-.rol-soporte { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); }
-
-.btn-action { display: inline-flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 8px; margin-right: 5px; text-decoration: none; font-size: 16px; transition: 0.3s; border: 1px solid transparent; }
-.btn-block { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border-color: rgba(255, 170, 0, 0.3); }
-.btn-block:hover { background: #ffaa00; color: #000; }
-.btn-activate { background: rgba(0, 255, 136, 0.15); color: #00ff88; border-color: rgba(0, 255, 136, 0.3); }
-.btn-activate:hover { background: #00ff88; color: #000; }
-.btn-delete { background: rgba(255, 51, 85, 0.15); color: #ff3355; border-color: rgba(255, 51, 85, 0.3); }
-.btn-delete:hover { background: #ff3355; color: white; }
-
 .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
 .alert.success { background: rgba(0, 255, 136, 0.1); border: 1px solid #00ff88; color: #00ff88; }
 .alert.error { background: rgba(255, 51, 85, 0.1); border: 1px solid #ff3355; color: #ff3355; }
+
+/* Estilos Específicos para formulario dividido */
+.section-title { grid-column: 1 / -1; margin-top: 10px; margin-bottom: 10px; color: white; border-left: 3px solid var(--accent); padding-left: 10px; font-size: 1.1rem; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+
+/* Badge de Estado */
+.active-dot { height: 10px; width: 10px; background-color: #00ff88; border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 5px #00ff88; }
+.inactive-dot { height: 10px; width: 10px; background-color: #ff3355; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+/* User Box Sidebar */
+.user-box { text-align: center; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; }
+.user-icon { width: 70px; height: 70px; margin: 0 auto 15px; background: rgba(0, 234, 255, 0.05); border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: var(--accent); box-shadow: 0 0 15px rgba(0, 234, 255, 0.2); }
+.user-name { font-size: 16px; font-weight: 600; margin: 0; }
+.user-role { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); background: rgba(0, 234, 255, 0.1); padding: 4px 8px; border-radius: 4px; font-weight: bold; margin-top: 5px; display: inline-block;}
 
 @media (max-width: 768px) { .wrap { grid-template-columns: 1fr; } .sidebar { position: relative; top: 0; max-height: none; } }
 </style>
@@ -193,20 +169,34 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
         <div class="user-box">
             <div class="user-icon"><?= strtoupper(substr($_SESSION['nombre_usuario'], 0, 1)) ?></div>
             <p class="user-name"><?= $_SESSION['nombre_usuario']; ?></p>
-            <span class="user-role">ADMINISTRADOR</span>
+            <span class="user-role"><?= $es_admin ? 'ADMINISTRADOR' : 'SOPORTE TÉCNICO' ?></span>
         </div>
 
         <nav>
             <a href="../dashboard.php">📊 Dashboard</a>
 
-            <a href="usuarios.php" class="active">👥 Usuarios</a>
+            <?php if($es_admin): ?>
+                <a href="usuarios.php">👥 Usuarios</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">👥 Usuarios <span>🔒</span></a>
+            <?php endif; ?>
 
-            <a href="clientes.php">🛰 Clientes</a>
+            <a href="clientes.php" class="active">🛰 Clientes</a>
+            
             <a href="tickets.php">🎫 Tickets</a>
             <a href="inventario.php">📦 Inventario</a>
 
-            <a href="pagos.php">💰 Pagos</a>
-            <a href="../configuracion.php">⚙ Configuración</a>
+            <?php if($es_admin): ?>
+                <a href="pagos.php">💰 Pagos</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">💰 Pagos <span>🔒</span></a>
+            <?php endif; ?>
+
+            <?php if($es_admin): ?>
+                <a href="../configuracion.php">⚙ Configuración</a>
+            <?php else: ?>
+                <a href="#" class="nav-locked" onclick="noPermiso(event)">⚙ Configuración <span>🔒</span></a>
+            <?php endif; ?>
         </nav>
         <div style="text-align:center; margin-top:30px;">
             <a href="../dashboard.php" style="color:#ff5577; text-decoration:none;">← Volver</a>
@@ -215,114 +205,141 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
     <main>
         <div class="main-header">
-            <h1>Administración de Usuarios</h1>
+            <h1>Cartera de Clientes</h1>
         </div>
 
         <?= $mensaje ?>
 
         <div class="form-panel">
-            <h3 style="margin-top:0; color:var(--text-muted); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">Crear Nuevo Usuario (Staff)</h3>
-            <p style="font-size:12px; color:#ffaa00; background:rgba(255,170,0,0.1); padding:10px; border-radius:5px;">
-                ⚠️ Nota: Si deseas crear un cliente con servicio de internet, ve al módulo <b><a href="clientes.php" style="color:#ffaa00;">Clientes</a></b>. Usa este formulario solo para Administradores o Técnicos.
-            </p>
+            <h3 style="margin-top:0; color:var(--text-muted); padding-bottom:10px;">Alta de Nuevo Servicio</h3>
             
             <form method="POST" action="">
                 <div class="form-grid">
+                    
+                    <div class="section-title">👤 Datos Personales & Acceso</div>
+                    
                     <div class="input-group">
                         <label>Nombre(s)</label>
-                        <input type="text" name="nombres" required placeholder="Nombre del empleado">
+                        <input type="text" name="nombres" required placeholder="Ej: Juan Antonio">
                     </div>
                     <div class="input-group">
                         <label>Apellido Paterno</label>
-                        <input type="text" name="apellido_p" required placeholder="Apellido">
+                        <input type="text" name="apellido_p" required placeholder="Ej: Pérez">
                     </div>
                     <div class="input-group">
                         <label>Apellido Materno</label>
-                        <input type="text" name="apellido_m" placeholder="Opcional">
+                        <input type="text" name="apellido_m" placeholder="Ej: López">
                     </div>
                     <div class="input-group">
-                        <label>Rol de Acceso</label>
-                        <select name="id_rol" required>
-                            <?php foreach($roles as $r): ?>
-                                <option value="<?= $r['id_rol'] ?>"><?= $r['nombre_rol'] ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label>Teléfono / Celular</label>
+                        <input type="tel" name="telefono" required placeholder="Ej: 5512345678">
                     </div>
                     <div class="input-group">
-                        <label>Email</label>
-                        <input type="email" name="email" required placeholder="correo@empresa.com">
+                        <label>Email (Contacto)</label>
+                        <input type="email" name="email" required placeholder="cliente@correo.com">
                     </div>
-                    <div class="input-group">
-                        <label>Teléfono</label>
-                        <input type="tel" name="telefono" placeholder="5511223344">
-                    </div>
+
                     <div class="input-group">
                         <label>Usuario (Login)</label>
-                        <input type="text" name="username" required placeholder="Ej: admin2">
+                        <input type="text" name="username" required placeholder="Ej: jperez2024">
                     </div>
                     <div class="input-group">
                         <label>Contraseña</label>
                         <input type="password" name="password" required placeholder="******">
                     </div>
-                    <button type="submit" name="btn_registrar_usuario" class="btn-submit">CREAR USUARIO</button>
+
+                    <div class="section-title">📡 Datos de Instalación</div>
+
+                    <div class="input-group" style="grid-column: span 2;">
+                        <label>Dirección de Instalación</label>
+                        <input type="text" name="direccion" required placeholder="Calle, Número, Colonia, Referencias">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Coordenadas GPS</label>
+                        <input type="text" name="coordenadas" placeholder="Ej: 19.4326, -99.1332">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Plan de Internet</label>
+                        <select name="id_plan" required>
+                            <?php foreach($planes as $p): ?>
+                                <option value="<?= $p['id_plan'] ?>">
+                                    <?= $p['nombre_plan'] . " (" . $p['velocidad_mbps'] . " MB) - $" . $p['precio_mensual'] ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>IP Asignada (WAN)</label>
+                        <input type="text" name="ip" required placeholder="Ej: 192.168.50.10">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Fecha Instalación</label>
+                        <input type="date" name="fecha_instalacion" value="<?= date('Y-m-d') ?>" required>
+                    </div>
+
+                    <button type="submit" name="btn_registrar_cliente" class="btn-submit">REGISTRAR CLIENTE</button>
                 </div>
             </form>
         </div>
 
         <div class="table-panel">
-            <h3 style="margin-top:0; color:var(--accent);">Usuarios del Sistema</h3>
+            <h3 style="margin-top:0; color:var(--accent);">Clientes Activos</h3>
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Nombre Completo</th>
-                        <th>Rol</th>
+                        <th>Cliente</th>
+                        <th>Dirección / GPS</th>
+                        <th>Plan Contratado</th>
+                        <th>IP Asignada</th>
+                        <th>Contacto</th>
                         <th>Estado</th>
-                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (count($lista_usuarios) > 0): ?>
-                        <?php foreach($lista_usuarios as $u): ?>
+                    <?php if (count($lista_clientes) > 0): ?>
+                        <?php foreach($lista_clientes as $c): ?>
                         <tr>
-                            <td>#<?= $u['id_usuario'] ?></td>
                             <td>
-                                <strong style="color:white;"><?= $u['nombres'] . " " . $u['apellido_paterno'] ?></strong><br>
-                                <span style="font-size:12px; color:var(--text-muted);"><?= $u['email'] ?></span>
+                                <strong style="color:white; font-size:15px;"><?= $c['nombres'] . " " . $c['apellido_paterno'] ?></strong><br>
+                                <span style="font-size:11px; color:var(--accent);">@<?= $c['nombres'] // Asumiendo username en future ?></span>
                             </td>
-                            <td>
-                                <?php 
-                                    $rol = $u['id_rol'];
-                                    $class = ($rol == 1) ? 'rol-admin' : (($rol == 2) ? 'rol-cliente' : 'rol-soporte');
-                                ?>
-                                <span class="badge <?= $class ?>"><?= $u['nombre_rol'] ?></span>
-                            </td>
-                            <td>
-                                <?php if($u['activo'] == 1): ?>
-                                    <span style="color:#00ff88;">● Activo</span>
-                                <?php else: ?>
-                                    <span style="color:#ff3355;">● Bloqueado</span>
+                            
+                            <td style="max-width:200px;">
+                                <div style="font-size:12px; line-height:1.2;"><?= substr($c['direccion_instalacion'], 0, 40) ?>...</div>
+                                <?php if($c['coordenadas_gps']): ?>
+                                    <a href="https://www.google.com/maps/search/?api=1&query=<?= $c['coordenadas_gps'] ?>" target="_blank" style="color:#ffaa00; font-size:11px; text-decoration:none;">📍 Ver Mapa</a>
                                 <?php endif; ?>
                             </td>
-                            <td>
-                                <?php if ($u['activo'] == 1): ?>
-                                    <a href="?accion=toggle&id=<?= $u['id_usuario'] ?>" class="btn-action btn-block" title="Bloquear Acceso" onclick="return confirm('¿Bloquear acceso a este usuario?');">
-                                        🔒
-                                    </a>
-                                <?php else: ?>
-                                    <a href="?accion=toggle&id=<?= $u['id_usuario'] ?>" class="btn-action btn-activate" title="Reactivar Acceso">
-                                        🔓
-                                    </a>
-                                <?php endif; ?>
 
-                                <a href="?accion=borrar&id=<?= $u['id_usuario'] ?>" class="btn-action btn-delete" title="Eliminar Definitivamente" onclick="return confirm('⚠ ¿Estás seguro de eliminar este usuario? Esta acción es irreversible.');">
-                                    🗑️
-                                </a>
+                            <td>
+                                <span style="color:#fff;"><?= $c['nombre_plan'] ?></span><br>
+                                <small style="color:#888;"><?= $c['velocidad_mbps'] ?> Mbps</small>
+                            </td>
+
+                            <td>
+                                <span style="font-family:monospace; background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px;"><?= $c['ip_asignada'] ?></span>
+                            </td>
+
+                            <td>
+                                <div style="font-size:12px;">📞 <?= $c['telefono'] ?></div>
+                                <div style="font-size:12px;">📧 <?= $c['email'] ?></div>
+                            </td>
+
+                            <td>
+                                <?php if($c['activo'] == 1): ?>
+                                    <span class="active-dot"></span> <span style="color:#00ff88; font-weight:bold;">Activo</span>
+                                <?php else: ?>
+                                    <span class="inactive-dot"></span> <span style="color:#ff3355; font-weight:bold;">Corte</span>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="5" style="text-align:center;">No hay usuarios registrados.</td></tr>
+                        <tr><td colspan="6" style="text-align:center;">No hay clientes registrados.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -330,6 +347,21 @@ tr:hover td { background: rgba(0, 234, 255, 0.03); }
 
     </main>
 </div>
+
+<script>
+    function noPermiso(e) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Acceso Restringido',
+            text: 'Tu perfil de Soporte Técnico no tiene permisos para acceder a este módulo.',
+            background: '#0a1f35',
+            color: '#fff',
+            confirmButtonColor: '#ff3366',
+            confirmButtonText: 'Entendido'
+        });
+    }
+</script>
 
 </body>
 </html>
